@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
+import { eq } from 'drizzle-orm'
 import { establishments, users } from './schema'
 
 const BCRYPT_ROUNDS = 12
@@ -21,62 +22,72 @@ async function main() {
     .onConflictDoNothing()
     .returning()
 
-  if (!establishment) {
-    console.log('⚠️  Establishment already exists, skipping.')
-    await client.end()
-    return
-  }
+  // If already existed, fetch it
+  const eid = establishment?.id ?? (
+    await db
+      .select({ id: establishments.id })
+      .from(establishments)
+      .limit(1)
+      .then((r) => r[0]?.id)
+  )
 
-  console.log(`✓ Establishment: ${establishment.name} (${establishment.id})`)
+  if (!eid) throw new Error('Could not find or create establishment')
+  console.log(`✓ Establishment: ${eid}`)
 
   // ── Users ──────────────────────────────────────────────────────────────────
   const seedUsers = [
     {
       email: 'admin@klyro.fr',
       password: 'admin1234',
+      pin: '0000',
       firstName: 'Admin',
       lastName: 'Klyro',
       role: 'SUPER_ADMIN' as const,
-      establishmentId: null, // SUPER_ADMIN has no establishment
+      establishmentId: null,
     },
     {
       email: 'manager@klyro.fr',
       password: 'manager1234',
+      pin: '1111',
       firstName: 'Marie',
       lastName: 'Dupont',
       role: 'MANAGER' as const,
-      establishmentId: establishment.id,
+      establishmentId: eid,
     },
     {
       email: 'staff@klyro.fr',
       password: 'staff1234',
+      pin: '2222',
       firstName: 'Lucas',
       lastName: 'Martin',
       role: 'STAFF' as const,
-      establishmentId: establishment.id,
+      establishmentId: eid,
     },
   ]
 
   for (const u of seedUsers) {
-    const { password, ...userData } = u
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-    const [inserted] = await db
+    const { password, pin, ...userData } = u
+    const [passwordHash, pinHash] = await Promise.all([
+      bcrypt.hash(password, BCRYPT_ROUNDS),
+      bcrypt.hash(pin, BCRYPT_ROUNDS),
+    ])
+
+    const [upserted] = await db
       .insert(users)
-      .values({ ...userData, passwordHash })
-      .onConflictDoNothing()
+      .values({ ...userData, passwordHash, pin: pinHash })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: { pin: pinHash, passwordHash },
+      })
       .returning({ id: users.id, email: users.email, role: users.role })
 
-    if (inserted) {
-      console.log(`✓ User [${inserted.role}]: ${inserted.email}`)
-    } else {
-      console.log(`⚠️  User already exists: ${u.email}`)
-    }
+    console.log(`✓ User [${upserted!.role}]: ${upserted!.email} — PIN ${pin}`)
   }
 
   console.log('\n✅ Seed complete.')
-  console.log('   admin@klyro.fr    / admin1234')
-  console.log('   manager@klyro.fr  / manager1234')
-  console.log('   staff@klyro.fr    / staff1234')
+  console.log('   admin@klyro.fr    / admin1234  — PIN 0000')
+  console.log('   manager@klyro.fr  / manager1234 — PIN 1111')
+  console.log('   staff@klyro.fr    / staff1234   — PIN 2222')
 
   await client.end()
 }
