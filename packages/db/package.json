@@ -1,0 +1,25 @@
+{
+  "name": "@klyro/db",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "drizzle-orm": "^0.39.1",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.30.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "colorGroups": [
+    {
+      "query": "tag:#community/Auth_&_Session",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/RBAC_&_Route_Guards",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Establishment_Resolution",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Planning_Week_Grid",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/Task_List_UI",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/Sidebar_Navigation",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/DB_Migration",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    },
+    {
+      "query": "tag:#community/DB_Seeding",
+      "color": {
+        "a": 1,
+        "rgb": 16752039
+      }
+    },
+    {
+      "query": "tag:#community/DB_Client",
+      "color": {
+        "a": 1,
+        "rgb": 10253663
+      }
+    },
+    {
+      "query": "tag:#community/Planning_Page",
+      "color": {
+        "a": 1,
+        "rgb": 12234924
+      }
+    },
+    {
+      "query": "tag:#community/Dashboard_Page",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/Login_Page",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Add_Shift_Modal",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Drizzle_Config",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/DB_Schema",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/DB_Index",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
+    },
+    {
+      "query": "tag:#community/Next.js_Env",
+      "color": {
+        "a": 1,
+        "rgb": 11565729
+      }
+    },
+    {
+      "query": "tag:#community/Tailwind_Config",
+      "color": {
+        "a": 1,
+        "rgb": 16752039
+      }
+    },
+    {
+      "query": "tag:#community/PostCSS_Config",
+      "color": {
+        "a": 1,
+        "rgb": 10253663
+      }
+    },
+    {
+      "query": "tag:#community/Next.js_Config",
+      "color": {
+        "a": 1,
+        "rgb": 12234924
+      }
+    },
+    {
+      "query": "tag:#community/Root_Layout",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/App_Shell_Layout",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    },
+    {
+      "query": "tag:#community/Tasks_Page",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/App_Shell_Component",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    }
+  ]
+}
