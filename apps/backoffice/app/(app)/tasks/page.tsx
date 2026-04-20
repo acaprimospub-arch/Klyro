@@ -70,6 +70,7 @@ export default async function TasksPage() {
         tasks={serializedTasks}
         users={allUsers}
         canManage={hasMinRole(session, 'MANAGER')}
+        currentUserId={session.sub}
       />
     </div>
   )

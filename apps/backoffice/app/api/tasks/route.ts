@@ -4,13 +4,15 @@ import { and, eq } from 'drizzle-orm'
 import { db, tasks, users } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
+import { getEffectiveEidFromRequest } from '@/lib/establishment'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const sessionOrError = await requireAuth(req)
   if (sessionOrError instanceof NextResponse) return sessionOrError
   const session = sessionOrError
 
-  if (!session.establishmentId) {
+  const eid = await getEffectiveEidFromRequest(session, req)
+  if (!eid) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })
   }
 
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.assignedTo, users.id))
-    .where(eq(tasks.establishmentId, session.establishmentId))
+    .where(eq(tasks.establishmentId, eid))
     .orderBy(tasks.createdAt)
 
   return NextResponse.json({
@@ -58,11 +60,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
 
-  if (!session.establishmentId) {
+  const eid = await getEffectiveEidFromRequest(session, req)
+  if (!eid) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })
   }
-
-  const eid = session.establishmentId
 
   let body: unknown
   try {

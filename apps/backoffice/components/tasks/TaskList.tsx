@@ -20,14 +20,26 @@ type TaskListProps = {
   tasks: Task[]
   users: User[]
   canManage: boolean
+  currentUserId: string
 }
 
 type Filter = 'ALL' | 'TODO' | 'IN_PROGRESS' | 'DONE'
 
+type DrawerState = {
+  open: boolean
+  task: Task | null
+}
+
 const STATUS_META = {
-  TODO: { label: 'À faire', style: { color: 'var(--color-text-muted)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' } },
+  TODO:        { label: 'À faire',  style: { color: 'var(--color-text-muted)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' } },
   IN_PROGRESS: { label: 'En cours', style: { color: 'var(--color-warning)', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.20)' } },
-  DONE: { label: 'Terminé', style: { color: 'var(--color-success)', backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.20)' } },
+  DONE:        { label: 'Terminé',  style: { color: 'var(--color-success)', backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.20)' } },
+}
+
+const STATUS_CYCLE: Record<Task['status'], Task['status']> = {
+  TODO: 'IN_PROGRESS',
+  IN_PROGRESS: 'DONE',
+  DONE: 'TODO',
 }
 
 const FILTER_LABELS: Record<Filter, string> = {
@@ -46,95 +58,176 @@ function fmtDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-// ─── Create task modal ────────────────────────────────────────────────────────
+// ─── Task Drawer (create + edit) ──────────────────────────────────────────────
 
-function CreateTaskModal({
+function TaskDrawer({
+  drawer,
   users,
+  canManage,
   onClose,
   onSuccess,
 }: {
+  drawer: DrawerState
   users: User[]
+  canManage: boolean
   onClose: () => void
   onSuccess: () => void
 }) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const task = drawer.task
+  const [title, setTitle]           = useState(task?.title ?? '')
+  const [description, setDescription] = useState(task?.description ?? '')
+  const [assignedTo, setAssignedTo] = useState(task?.assignedTo ?? '')
+  const [dueDate, setDueDate]       = useState(task?.dueDate ?? '')
+  const [saving, setSaving]         = useState(false)
+  const [deleting, setDeleting]     = useState(false)
+  const [error, setError]           = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
+    setSaving(true)
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description: description || undefined,
-          assignedTo: assignedTo || undefined,
-          dueDate: dueDate || undefined,
-        }),
-      })
+      if (task) {
+        const res = await fetch(`/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: description || null,
+            assignedTo: assignedTo || null,
+            dueDate: dueDate || null,
+          }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          setError((data as { error?: string }).error ?? 'Erreur')
+          return
+        }
+      } else {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: description || undefined,
+            assignedTo: assignedTo || undefined,
+            dueDate: dueDate || undefined,
+          }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          setError((data as { error?: string }).error ?? 'Erreur')
+          return
+        }
+      }
+      onSuccess()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!task) return
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError((data as { error?: string }).error ?? 'Erreur lors de la création')
+        setError((data as { error?: string }).error ?? 'Erreur')
         return
       }
       onSuccess()
-    } catch {
-      setError('Erreur réseau, réessayez')
     } finally {
-      setLoading(false)
+      setDeleting(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="rounded-xl p-6 w-full max-w-md shadow-2xl" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-display font-bold" style={{ color: 'var(--color-text-primary)' }}>Nouvelle tâche</h2>
-          <button onClick={onClose} style={{ color: 'var(--color-text-muted)' }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <>
+      {/* Backdrop */}
+      {drawer.open && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={onClose}
+        />
+      )}
+
+      {/* Drawer — bottom sheet on mobile, centered modal on desktop */}
+      <div
+        className={`fixed z-50 transition-all duration-300 ease-out
+          bottom-0 left-0 right-0 rounded-t-2xl
+          sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+          sm:rounded-2xl sm:w-full sm:max-w-md
+          ${drawer.open ? 'translate-y-0 opacity-100' : 'translate-y-full sm:translate-y-0 opacity-0 pointer-events-none'}`}
+        style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
+        {/* Handle bar (mobile only) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-8 h-1 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 sm:pt-5">
+          <h2 className="text-base font-semibold font-display" style={{ color: 'var(--color-text-primary)' }}>
+            {task ? 'Modifier la tâche' : 'Nouvelle tâche'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--color-text-muted)' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form */}
+        <form id="task-drawer-form" onSubmit={handleSave} className="px-5 pb-2 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>Titre *</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+              Titre *
+            </label>
             <input
               type="text"
+              required
+              className="input-base"
+              placeholder="Nom de la tâche"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              required
-              placeholder="Nom de la tâche"
-              className="input-base"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>Description</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+              Description
+            </label>
             <textarea
+              rows={3}
+              className="input-base resize-none"
+              placeholder="Détails optionnels…"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Détails optionnels…"
-              className="input-base resize-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>Assigner à</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Assigner à
+              </label>
               <select
+                className="input-base"
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
-                className="input-base"
               >
                 <option value="">Non assigné</option>
                 {users.map((u) => (
@@ -145,47 +238,91 @@ function CreateTaskModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>Échéance</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Échéance
+              </label>
               <input
                 type="date"
+                className="input-base"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="input-base"
               />
             </div>
           </div>
 
-          {error && <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>}
-
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-ghost flex-1">
-              Annuler
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1">
-              {loading ? 'Création…' : 'Créer'}
-            </button>
-          </div>
+          {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </form>
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-5 py-4">
+          {task && canManage && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting || saving}
+              className="p-2 rounded-lg transition-colors disabled:opacity-40"
+              style={{ color: 'var(--color-danger)', border: '1px solid rgba(248,113,113,0.25)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(248,113,113,0.08)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '' }}
+              title="Supprimer la tâche"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="flex-1 btn-ghost">
+            Annuler
+          </button>
+          <button
+            type="submit"
+            form="task-drawer-form"
+            disabled={saving || deleting || !title.trim()}
+            className="flex-1 btn-primary"
+          >
+            {saving ? 'Enregistrement…' : task ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function TaskList({ tasks, users, canManage }: TaskListProps) {
+export function TaskList({ tasks, users, canManage, currentUserId }: TaskListProps) {
   const router = useRouter()
   const [filter, setFilter] = useState<Filter>('ALL')
-  const [showModal, setShowModal] = useState(false)
+  const [drawer, setDrawer] = useState<DrawerState>({ open: false, task: null })
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  const counts: Record<Filter, number> = {
+    ALL:         tasks.length,
+    TODO:        tasks.filter((t) => t.status === 'TODO').length,
+    IN_PROGRESS: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
+    DONE:        tasks.filter((t) => t.status === 'DONE').length,
+  }
+
+  const mine      = tasks.filter((t) => t.assignedTo === currentUserId).length
+  const donePct   = tasks.length ? Math.round((counts.DONE / tasks.length) * 100) : 0
 
   const filtered = filter === 'ALL' ? tasks : tasks.filter((t) => t.status === filter)
 
-  const counts: Record<Filter, number> = {
-    ALL: tasks.length,
-    TODO: tasks.filter((t) => t.status === 'TODO').length,
-    IN_PROGRESS: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    DONE: tasks.filter((t) => t.status === 'DONE').length,
+  function openCreate() {
+    setDrawer({ open: true, task: null })
+  }
+
+  function openEdit(task: Task) {
+    setDrawer({ open: true, task })
+  }
+
+  function closeDrawer() {
+    setDrawer((d) => ({ ...d, open: false }))
+  }
+
+  function handleSuccess() {
+    closeDrawer()
+    router.refresh()
   }
 
   async function updateStatus(id: string, status: Task['status']) {
@@ -202,14 +339,57 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
     }
   }
 
-  const STATUS_CYCLE: Record<Task['status'], Task['status']> = {
-    TODO: 'IN_PROGRESS',
-    IN_PROGRESS: 'DONE',
-    DONE: 'TODO',
-  }
-
   return (
     <div>
+      {/* Progress bar */}
+      {tasks.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+              Progression
+            </span>
+            <span className="text-xs font-semibold" style={{ color: donePct === 100 ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+              {donePct}% · {counts.DONE}/{tasks.length}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-elevated)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${donePct}%`,
+                backgroundColor: donePct === 100 ? 'var(--color-success)' : 'var(--color-accent)',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stats bar */}
+      {tasks.length > 0 && (
+        <div
+          className="flex items-center gap-4 flex-wrap px-4 py-2.5 rounded-lg mb-5 text-xs"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} />
+            <span style={{ color: 'var(--color-text-muted)' }}>Mes tâches :</span>
+            <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{mine}</span>
+          </div>
+          <span style={{ color: 'var(--color-border)' }}>·</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-warning)' }} />
+            <span style={{ color: 'var(--color-text-muted)' }}>En cours :</span>
+            <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{counts.IN_PROGRESS}</span>
+          </div>
+          <span style={{ color: 'var(--color-border)' }}>·</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-text-muted)' }} />
+            <span style={{ color: 'var(--color-text-muted)' }}>À faire :</span>
+            <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{counts.TODO}</span>
+          </div>
+        </div>
+      )}
+
       {/* Filters + create button */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
@@ -235,7 +415,7 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
         </div>
         {canManage && (
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreate}
             className="btn-primary flex items-center gap-1.5 sm:ml-auto"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -254,14 +434,13 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
       ) : (
         <div className="space-y-2">
           {filtered.map((task) => {
-            const meta = STATUS_META[task.status]
+            const meta    = STATUS_META[task.status]
             const overdue = isOverdue(task)
+            const isAssignedToMe = task.assignedTo === currentUserId
             return (
               <div
                 key={task.id}
-                className={`card p-4 flex items-start gap-4 ${
-                  task.status === 'DONE' ? 'opacity-60' : ''
-                }`}
+                className={`card p-4 flex items-start gap-4 group ${task.status === 'DONE' ? 'opacity-60' : ''}`}
               >
                 {/* Status toggle */}
                 <button
@@ -295,6 +474,14 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
                       style={{ color: task.status === 'DONE' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}
                     >
                       {task.title}
+                      {isAssignedToMe && task.status !== 'DONE' && (
+                        <span
+                          className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium"
+                          style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.20)' }}
+                        >
+                          Moi
+                        </span>
+                      )}
                     </p>
                     <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={meta.style}>
                       {meta.label}
@@ -302,7 +489,9 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
                   </div>
 
                   {task.description && (
-                    <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{task.description}</p>
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>
+                      {task.description}
+                    </p>
                   )}
 
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -315,7 +504,10 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
                       </span>
                     )}
                     {task.dueDate && (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: overdue ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+                      <span
+                        className="flex items-center gap-1 text-xs"
+                        style={{ color: overdue ? 'var(--color-danger)' : 'var(--color-text-muted)' }}
+                      >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25" />
                         </svg>
@@ -324,22 +516,35 @@ export function TaskList({ tasks, users, canManage }: TaskListProps) {
                     )}
                   </div>
                 </div>
+
+                {/* Edit button (managers only, visible on hover) */}
+                {canManage && (
+                  <button
+                    onClick={() => openEdit(task)}
+                    className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
+                    style={{ color: 'var(--color-text-muted)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}
+                    title="Modifier"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {showModal && (
-        <CreateTaskModal
-          users={users}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false)
-            router.refresh()
-          }}
-        />
-      )}
+      <TaskDrawer
+        drawer={drawer}
+        users={users}
+        canManage={canManage}
+        onClose={closeDrawer}
+        onSuccess={handleSuccess}
+      />
     </div>
   )
 }

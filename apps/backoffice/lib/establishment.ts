@@ -34,11 +34,22 @@ export async function getEffectiveEstablishmentId(
 /**
  * Same resolution logic but reads from the incoming NextRequest.
  * For use inside Route Handlers where next/headers is not available.
+ * SUPER_ADMIN: cookie → fallback to first establishment (same as getEffectiveEstablishmentId).
  */
-export function getEffectiveEidFromRequest(
+export async function getEffectiveEidFromRequest(
   session: SessionPayload,
   req: NextRequest
-): string | null {
+): Promise<string | null> {
   if (session.role !== 'SUPER_ADMIN') return session.establishmentId
-  return req.cookies.get(ACTIVE_EID_COOKIE)?.value ?? null
+
+  const fromCookie = req.cookies.get(ACTIVE_EID_COOKIE)?.value
+  if (fromCookie) return fromCookie
+
+  const [first] = await db
+    .select({ id: establishments.id })
+    .from(establishments)
+    .orderBy(asc(establishments.name))
+    .limit(1)
+
+  return first?.id ?? null
 }
