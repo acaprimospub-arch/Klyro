@@ -3,14 +3,11 @@ import { and, desc, eq, gte } from 'drizzle-orm'
 import { db, timeEntries, users } from '@klyro/db'
 import { getSession } from '@/lib/auth'
 import { getEffectiveEstablishmentId } from '@/lib/establishment'
-import { hasMinRole } from '@/lib/rbac'
 import { TimeclockView } from '@/components/timeclock/TimeclockView'
 
 export default async function TimeclockPage() {
   const session = await getSession()
   if (!session) redirect('/login')
-
-  if (!hasMinRole(session, 'MANAGER')) redirect('/dashboard')
 
   const eid = await getEffectiveEstablishmentId(session)
   if (!eid) {

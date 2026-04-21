@@ -1,69 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
+import { eq, isNotNull } from 'drizzle-orm'
 import { db, users } from '@klyro/db'
 import { signToken, setSessionCookie } from '@/lib/auth'
 
-const loginSchema = z.object({
-  email: z.string().email(),
+const emailSchema = z.object({
+  email:    z.string().email(),
   password: z.string().min(1),
 })
 
+const pinSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/),
+})
+
+const bodySchema = z.union([emailSchema, pinSchema])
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // 1. Validate input
   let body: unknown
-  try {
-    body = await req.json()
-  } catch {
+  try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const parsed = loginSchema.safeParse(body)
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request', details: parsed.error.flatten().fieldErrors },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Email + mot de passe ou PIN requis' }, { status: 400 })
   }
 
-  const { email, password } = parsed.data
+  let user: typeof users.$inferSelect | undefined
 
-  // 2. Look up user — always run the hash comparison to prevent timing attacks
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email.toLowerCase()))
-    .limit(1)
+  if ('pin' in parsed.data) {
+    // ── PIN login ────────────────────────────────────────────────────────────
+    const { pin } = parsed.data
 
-  // Constant-time comparison even when user doesn't exist
-  const dummyHash = '$2b$10$abcdefghijklmnopqrstuvuKQJBD.TvfDwJ6e3C1bKQrkqRB3y5nC'
-  const passwordToCheck = user?.passwordHash ?? dummyHash
-  const passwordMatch = await bcrypt.compare(password, passwordToCheck)
+    const candidates = await db
+      .select()
+      .from(users)
+      .where(isNotNull(users.pin))
 
-  if (!user || !passwordMatch) {
-    return NextResponse.json(
-      { error: 'Invalid email or password' },
-      { status: 401 }
-    )
+    // Constant-time: compare against all hashed PINs
+    const dummyHash = '$2b$12$abcdefghijklmnopqrstuvuKQJBD.TvfDwJ6e3C1bKQrkqRB3y5nC'
+    for (const candidate of candidates) {
+      const match = await bcrypt.compare(pin, candidate.pin ?? dummyHash)
+      if (match) {
+        user = candidate
+        break
+      }
+    }
+
+    if (!user) {
+      // Always run one extra comparison to prevent timing attacks on empty DB
+      await bcrypt.compare(pin, dummyHash)
+      return NextResponse.json({ error: 'PIN incorrect' }, { status: 401 })
+    }
+  } else {
+    // ── Email + password login ────────────────────────────────────────────────
+    const { email, password } = parsed.data
+
+    const [found] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1)
+
+    const dummyHash = '$2b$12$abcdefghijklmnopqrstuvuKQJBD.TvfDwJ6e3C1bKQrkqRB3y5nC'
+    const passwordMatch = await bcrypt.compare(password, found?.passwordHash ?? dummyHash)
+
+    if (!found || !passwordMatch) {
+      return NextResponse.json({ error: 'Email ou mot de passe incorrect' }, { status: 401 })
+    }
+
+    user = found
   }
 
-  // 3. Sign JWT
   const token = await signToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
+    sub:             user.id,
+    email:           user.email,
+    role:            user.role,
     establishmentId: user.establishmentId,
   })
 
-  // 4. Set httpOnly cookie and return safe user data
   const res = NextResponse.json({
     user: {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
+      id:              user.id,
+      email:           user.email,
+      firstName:       user.firstName,
+      lastName:        user.lastName,
+      role:            user.role,
       establishmentId: user.establishmentId,
     },
   })

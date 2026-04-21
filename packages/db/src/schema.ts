@@ -47,11 +47,24 @@ export const establishments = pgTable('establishments', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const positions = pgTable('positions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  establishmentId: uuid('establishment_id')
+    .notNull()
+    .references(() => establishments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   // SUPER_ADMIN has null establishmentId — every other role must have one
   establishmentId: uuid('establishment_id').references(() => establishments.id, {
     onDelete: 'cascade',
+  }),
+  positionId: uuid('position_id').references(() => positions.id, {
+    onDelete: 'set null',
   }),
   firstName: text('first_name').notNull(),
   lastName: text('last_name').notNull(),
@@ -146,6 +159,7 @@ export const reservations = pgTable('reservations', {
 
 export const establishmentRelations = relations(establishments, ({ many }) => ({
   users: many(users),
+  positions: many(positions),
   schedules: many(schedules),
   tasks: many(tasks),
   leaveRequests: many(leaveRequests),
@@ -153,10 +167,22 @@ export const establishmentRelations = relations(establishments, ({ many }) => ({
   reservations: many(reservations),
 }))
 
+export const positionRelations = relations(positions, ({ one, many }) => ({
+  establishment: one(establishments, {
+    fields: [positions.establishmentId],
+    references: [establishments.id],
+  }),
+  users: many(users),
+}))
+
 export const userRelations = relations(users, ({ one, many }) => ({
   establishment: one(establishments, {
     fields: [users.establishmentId],
     references: [establishments.id],
+  }),
+  position: one(positions, {
+    fields: [users.positionId],
+    references: [positions.id],
   }),
   schedules: many(schedules),
   tasks: many(tasks),
@@ -241,6 +267,9 @@ export type NewTimeEntry = typeof timeEntries.$inferInsert
 
 export type Reservation = typeof reservations.$inferSelect
 export type NewReservation = typeof reservations.$inferInsert
+
+export type Position = typeof positions.$inferSelect
+export type NewPosition = typeof positions.$inferInsert
 
 export type Role = (typeof roleEnum.enumValues)[number]
 export type TaskStatus = (typeof taskStatusEnum.enumValues)[number]
