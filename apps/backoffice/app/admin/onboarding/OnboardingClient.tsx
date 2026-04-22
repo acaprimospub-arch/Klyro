@@ -14,9 +14,9 @@ const s = {
   textPrimary: '#FAFAF9',
   textSec:     '#A1A1AA',
   textMuted:   '#71717A',
-  accent:      '#00D4FF',
-  accentDim:   'rgba(0,212,255,0.12)',
-  accentBorder:'rgba(0,212,255,0.3)',
+  accent:      '#E07547',
+  accentDim:   'rgba(224,117,71,0.12)',
+  accentBorder:'rgba(224,117,71,0.3)',
   success:     '#34D399',
   successDim:  'rgba(52,211,153,0.1)',
   danger:      '#F87171',
@@ -270,7 +270,7 @@ export function OnboardingClient() {
                 Établissement créé !
               </h1>
               <p className="text-sm" style={{ color: s.textMuted }}>
-                {success.establishment.name} est prêt à utiliser Klyro.
+                {success.establishment.name} est prêt à utiliser Staffizi.
               </p>
             </div>
 

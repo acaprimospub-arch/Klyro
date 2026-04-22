@@ -148,7 +148,7 @@ export function Sidebar({ user, establishments, activeEstablishmentId, permissio
           className="text-xl font-display font-bold tracking-tight"
           style={{ color: 'var(--color-accent)' }}
         >
-          Klyro
+          Staffizi
         </span>
         {onClose && (
           <button

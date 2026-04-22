@@ -247,20 +247,20 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
                               onClick={() => openDrawer(user.id, toLocalDateKey(day), shift)}
                               className="w-full text-left rounded-md px-2 py-1.5 text-xs transition-all"
                               style={{
-                                backgroundColor: 'rgba(0,212,255,0.06)',
-                                border: '1px solid rgba(0,212,255,0.15)',
+                                backgroundColor: 'rgba(224,117,71,0.06)',
+                                border: '1px solid rgba(224,117,71,0.15)',
                                 cursor: canManage ? 'pointer' : 'default',
                               }}
                               onMouseEnter={(e) => {
                                 if (!canManage) return
                                 const el = e.currentTarget as HTMLElement
-                                el.style.backgroundColor = 'rgba(0,212,255,0.10)'
-                                el.style.borderColor = 'rgba(0,212,255,0.30)'
+                                el.style.backgroundColor = 'rgba(224,117,71,0.10)'
+                                el.style.borderColor = 'rgba(224,117,71,0.30)'
                               }}
                               onMouseLeave={(e) => {
                                 const el = e.currentTarget as HTMLElement
-                                el.style.backgroundColor = 'rgba(0,212,255,0.06)'
-                                el.style.borderColor = 'rgba(0,212,255,0.15)'
+                                el.style.backgroundColor = 'rgba(224,117,71,0.06)'
+                                el.style.borderColor = 'rgba(224,117,71,0.15)'
                               }}
                             >
                               <div className="font-medium truncate" style={{ color: 'var(--color-accent)' }}>

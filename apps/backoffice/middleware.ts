@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const COOKIE_NAME   = 'klyro_session'
+const COOKIE_NAME   = 'staffizi_session'
 const ADMIN_LOGIN   = '/admin/login'
 const ADMIN_DASH    = '/admin/dashboard'
 

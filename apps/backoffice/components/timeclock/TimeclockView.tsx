@@ -384,7 +384,7 @@ function KioskOverlay({ eid, onClose }: { eid: string; onClose: () => void }) {
                   style={{
                     backgroundColor: 'rgba(0,0,0,0.35)',
                     color: 'var(--color-accent)',
-                    textShadow: '0 0 20px rgba(0,212,255,0.6)',
+                    textShadow: '0 0 20px rgba(224,117,71,0.6)',
                   }}
                 >
                   {countdown}

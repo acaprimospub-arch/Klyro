@@ -7,8 +7,8 @@
   --color-bg-primary:    #0A0A0B;
   --color-bg-secondary:  #111113;
   --color-bg-elevated:   #18181B;
-  --color-accent:        #00D4FF;
-  --color-accent-soft:   rgba(0, 212, 255, 0.08);
+  --color-accent:        #E07547;
+  --color-accent-soft:   rgba(224, 117, 71, 0.08);
   --color-text-primary:  #FAFAF9;
   --color-text-secondary:#A1A1AA;
   --color-text-muted:    #52525B;
@@ -23,8 +23,8 @@ html.light {
   --color-bg-primary:    #FAFAF9;
   --color-bg-secondary:  #F5F5F4;
   --color-bg-elevated:   #E7E5E4;
-  --color-accent:        #00A8CC;
-  --color-accent-soft:   rgba(0, 168, 204, 0.10);
+  --color-accent:        #C15C2A;
+  --color-accent-soft:   rgba(193, 92, 42, 0.10);
   --color-text-primary:  #0A0A0B;
   --color-text-secondary:#52525B;
   --color-text-muted:    #A1A1AA;
@@ -98,7 +98,7 @@ html.light {
     background-color: var(--color-accent);
     color: #fff;
   }
-  html.light .btn-primary { color: #0A0A0B; }
+  html.light .btn-primary { color: #fff; }
   .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
   .btn-primary:active:not(:disabled) { filter: brightness(0.95); }
 

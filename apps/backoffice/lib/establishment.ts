@@ -4,12 +4,12 @@ import { db, establishments } from '@klyro/db'
 import type { SessionPayload } from './auth'
 import type { NextRequest } from 'next/server'
 
-export const ACTIVE_EID_COOKIE = 'klyro_active_eid'
+export const ACTIVE_EID_COOKIE = 'staffizi_active_eid'
 
 /**
  * Returns the establishment ID to use for queries.
  * - Non-SUPER_ADMIN: always their own establishmentId from the JWT
- * - SUPER_ADMIN: reads the klyro_active_eid cookie, falls back to first establishment
+ * - SUPER_ADMIN: reads the staffizi_active_eid cookie, falls back to first establishment
  *
  * For use in Server Components and Route Handlers via next/headers.
  */

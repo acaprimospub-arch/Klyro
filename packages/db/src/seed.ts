@@ -18,7 +18,7 @@ async function main() {
   // ── Establishment ──────────────────────────────────────────────────────────
   const [establishment] = await db
     .insert(establishments)
-    .values({ name: 'Klyro Demo', address: '12 rue de la Paix, 75001 Paris' })
+    .values({ name: 'Staffizi Demo', address: '12 rue de la Paix, 75001 Paris' })
     .onConflictDoNothing()
     .returning()
 
@@ -37,16 +37,16 @@ async function main() {
   // ── Users ──────────────────────────────────────────────────────────────────
   const seedUsers = [
     {
-      email: 'admin@klyro.fr',
+      email: 'admin@staffizi.fr',
       password: 'admin1234',
       pin: '0000',
       firstName: 'Admin',
-      lastName: 'Klyro',
+      lastName: 'Staffizi',
       role: 'SUPER_ADMIN' as const,
       establishmentId: null,
     },
     {
-      email: 'manager@klyro.fr',
+      email: 'manager@staffizi.fr',
       password: 'manager1234',
       pin: '1111',
       firstName: 'Marie',
@@ -55,7 +55,7 @@ async function main() {
       establishmentId: eid,
     },
     {
-      email: 'staff@klyro.fr',
+      email: 'staff@staffizi.fr',
       password: 'staff1234',
       pin: '2222',
       firstName: 'Lucas',
@@ -85,9 +85,9 @@ async function main() {
   }
 
   console.log('\n✅ Seed complete.')
-  console.log('   admin@klyro.fr    / admin1234  — PIN 0000')
-  console.log('   manager@klyro.fr  / manager1234 — PIN 1111')
-  console.log('   staff@klyro.fr    / staff1234   — PIN 2222')
+  console.log('   admin@staffizi.fr    / admin1234  — PIN 0000')
+  console.log('   manager@staffizi.fr  / manager1234 — PIN 1111')
+  console.log('   staff@staffizi.fr    / staff1234   — PIN 2222')
 
   await client.end()
 }

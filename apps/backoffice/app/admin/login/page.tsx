@@ -46,7 +46,7 @@ export default function AdminLoginPage() {
             className="text-xs font-mono tracking-[0.3em] uppercase"
             style={{ color: '#3F3F46' }}
           >
-            klyro
+            staffizi
           </span>
         </div>
 

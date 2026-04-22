@@ -13,7 +13,7 @@ export default {
         display: ['var(--font-syne)', 'Syne', 'system-ui', 'sans-serif'],
       },
       colors: {
-        accent: '#00D4FF',
+        accent: '#E07547',
       },
     },
   },

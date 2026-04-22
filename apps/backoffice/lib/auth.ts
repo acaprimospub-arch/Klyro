@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Role } from '@klyro/db'
 
-const COOKIE_NAME = 'klyro_session'
+const COOKIE_NAME = 'staffizi_session'
 const ALGORITHM = 'HS256'
 const TOKEN_TTL = '24h'
 

@@ -29,8 +29,8 @@ const s = {
   textPrimary: '#FAFAF9',
   textSec:     '#A1A1AA',
   textMuted:   '#71717A',
-  accent:      '#00A8CC',
-  accentSoft:  'rgba(0,168,204,0.12)',
+  accent:      '#E07547',
+  accentSoft:  'rgba(224,117,71,0.12)',
   danger:      '#F87171',
   dangerSoft:  'rgba(248,113,113,0.1)',
 }
@@ -412,7 +412,7 @@ export function AdminDashboardClient({
         style={{ backgroundColor: s.bgCard, borderBottom: `1px solid ${s.border}` }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono tracking-[0.3em] uppercase" style={{ color: s.textMuted }}>klyro</span>
+          <span className="text-xs font-mono tracking-[0.3em] uppercase" style={{ color: s.textMuted }}>staffizi</span>
           <span style={{ color: s.border }}>·</span>
           <span className="text-xs" style={{ color: s.textMuted }}>Administration</span>
         </div>
@@ -420,7 +420,7 @@ export function AdminDashboardClient({
           <button
             onClick={() => router.push('/admin/onboarding')}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-            style={{ backgroundColor: '#00D4FF', color: '#000' }}
+            style={{ backgroundColor: '#E07547', color: '#fff' }}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -511,7 +511,7 @@ export function AdminDashboardClient({
                         <button
                           onClick={openEditEst}
                           className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                          style={{ color: s.accent, backgroundColor: s.accentSoft, border: `1px solid rgba(0,168,204,0.3)` }}
+                          style={{ color: s.accent, backgroundColor: s.accentSoft, border: `1px solid rgba(224,117,71,0.3)` }}
                         >Modifier</button>
                         <button
                           onClick={deleteEst}

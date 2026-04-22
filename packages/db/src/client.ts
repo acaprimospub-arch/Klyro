@@ -4,7 +4,7 @@ import * as schema from './schema'
 
 type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>
 
-const g = globalThis as unknown as { _klyroDb?: DrizzleDB }
+const g = globalThis as unknown as { _staffiziDb?: DrizzleDB }
 
 function createDb(): DrizzleDB {
   const url = process.env['DATABASE_URL']
@@ -14,5 +14,5 @@ function createDb(): DrizzleDB {
 }
 
 // Reuse across Next.js HMR reloads in development
-export const db: DrizzleDB = g._klyroDb ?? (g._klyroDb = createDb())
+export const db: DrizzleDB = g._staffiziDb ?? (g._staffiziDb = createDb())
 export type Database = typeof db

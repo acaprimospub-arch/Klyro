@@ -14,7 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Read what the no-flash script already applied
-    const stored = localStorage.getItem('klyro-theme') as Theme | null
+    const stored = localStorage.getItem('staffizi-theme') as Theme | null
     const initial = stored ?? 'dark'
     setTheme(initial)
     applyTheme(initial)
@@ -27,7 +27,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove('light')
     }
-    localStorage.setItem('klyro-theme', t)
+    localStorage.setItem('staffizi-theme', t)
   }
 
   function toggle() {

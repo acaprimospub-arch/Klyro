@@ -372,7 +372,7 @@ export function ReservationList({ canManage }: Props) {
         <div className="flex flex-wrap gap-2 mb-4">
           <div
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-            style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid rgba(0,212,255,0.25)', color: 'var(--color-accent)' }}
+            style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid rgba(224,117,71,0.25)', color: 'var(--color-accent)' }}
           >
             <span className="font-bold">{data.length}</span> résa{data.length > 1 ? 's' : ''} · <span className="font-bold">{totalPax}</span> pers.
           </div>

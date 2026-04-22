@@ -59,7 +59,7 @@ export function AppShell({ user, establishments, activeEstablishmentId, permissi
             className="ml-3 text-lg font-display font-bold"
             style={{ color: 'var(--color-accent)' }}
           >
-            Klyro
+            Staffizi
           </span>
         </div>
 

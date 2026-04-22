@@ -477,7 +477,7 @@ export function TaskList({ tasks, users, canManage, currentUserId }: TaskListPro
                       {isAssignedToMe && task.status !== 'DONE' && (
                         <span
                           className="ml-2 text-xs px-1.5 py-0.5 rounded font-medium"
-                          style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.20)' }}
+                          style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(224,117,71,0.08)', border: '1px solid rgba(224,117,71,0.20)' }}
                         >
                           Moi
                         </span>

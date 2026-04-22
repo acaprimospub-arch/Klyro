@@ -68,7 +68,7 @@ export default function LoginPage() {
           className="text-3xl font-display font-bold tracking-tight"
           style={{ color: 'var(--color-accent)' }}
         >
-          Klyro
+          Staffizi
         </h1>
 
         <div className="w-full flex flex-col items-center gap-6">
@@ -110,7 +110,7 @@ export default function LoginPage() {
             onClick={() => submit()}
             disabled={loading || pin.join('').length < 4}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-30"
-            style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
+            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
           >
             {loading ? '…' : 'Se connecter'}
           </button>
