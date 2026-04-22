@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
+import type { PermissionsMap } from '@/lib/permissions'
 
 type Establishment = { id: string; name: string }
 
@@ -9,13 +10,14 @@ type AppShellProps = {
   user: { name: string; email: string; role: string }
   establishments: Establishment[]
   activeEstablishmentId: string | null
+  permissions: PermissionsMap | null
   children: React.ReactNode
 }
 
-export function AppShell({ user, establishments, activeEstablishmentId, children }: AppShellProps) {
+export function AppShell({ user, establishments, activeEstablishmentId, permissions, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const sidebarProps = { user, establishments, activeEstablishmentId }
+  const sidebarProps = { user, establishments, activeEstablishmentId, permissions }
 
   return (
     <div className="flex h-full">

@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { db, tasks, users } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
+import { requirePermission } from '@/lib/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -84,6 +85,9 @@ export async function DELETE(req: NextRequest, { params }: Params): Promise<Next
 
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
+
+  const permDenied = await requirePermission(session, 'canEditTasks')
+  if (permDenied) return permDenied
 
   if (!session.establishmentId) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })

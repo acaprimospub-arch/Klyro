@@ -5,6 +5,7 @@ import { db, reservations } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
 import { getEffectiveEidFromRequest } from '@/lib/establishment'
+import { requirePermission } from '@/lib/permissions'
 
 // GET /api/reservations?date=YYYY-MM-DD
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -60,6 +61,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
+
+  const permDenied = await requirePermission(session, 'canEditReservations')
+  if (permDenied) return permDenied
 
   const eid = await getEffectiveEidFromRequest(session, req)
   if (!eid) return NextResponse.json({ error: 'Establishment required' }, { status: 400 })

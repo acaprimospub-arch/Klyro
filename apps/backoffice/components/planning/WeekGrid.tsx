@@ -31,14 +31,16 @@ type DrawerState = {
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-function addDays(isoDate: string, days: number): Date {
-  const d = new Date(isoDate)
-  d.setDate(d.getDate() + days)
-  return d
+// weekStart is a YYYY-MM-DD string — always parsed as local midnight
+function addDays(dateKey: string, days: number): Date {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const date = new Date(y!, m! - 1, d!)
+  date.setDate(date.getDate() + days)
+  return date
 }
 
-function toDateKey(d: Date): string {
-  return d.toISOString().split('T')[0] ?? ''
+function toLocalDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function fmtTime(iso: string): string {
@@ -54,9 +56,8 @@ function fmtShortDate(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-function buildDatetime(dayIso: string, time: string): string {
-  // dayIso is a full ISO datetime (start of day in UTC), time is HH:MM local
-  const dateKey = toDateKey(new Date(dayIso))
+function buildDatetime(dateKey: string, time: string): string {
+  // dateKey is YYYY-MM-DD (local), time is HH:MM — no timezone suffix → parsed as local time
   return new Date(`${dateKey}T${time}:00`).toISOString()
 }
 
@@ -79,7 +80,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
 
   function navigateWeek(delta: number) {
     const monday = addDays(weekStart, delta * 7)
-    router.push(`/planning?week=${toDateKey(monday)}`)
+    router.push(`/planning?week=${toLocalDateKey(monday)}`)
   }
 
   function openDrawer(userId: string, dayIso: string, shift: Schedule | null) {
@@ -156,18 +157,19 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
     }
   }
 
-  const isToday = (d: Date) => toDateKey(d) === toDateKey(new Date())
+  const isToday = (d: Date) => toLocalDateKey(d) === toLocalDateKey(new Date())
 
   const scheduleIndex = new Map<string, Schedule[]>()
   for (const s of schedules) {
-    const key = `${s.userId}::${toDateKey(new Date(s.startAt))}`
+    const key = `${s.userId}::${toLocalDateKey(new Date(s.startAt))}`
     const existing = scheduleIndex.get(key) ?? []
     existing.push(s)
     scheduleIndex.set(key, existing)
   }
 
   const drawerUser = users.find((u) => u.id === drawer.userId)
-  const drawerDayLabel = drawer.dayIso ? fmtShortDate(new Date(drawer.dayIso)) : ''
+  // dayIso is YYYY-MM-DD — append T00:00:00 so it's parsed as local midnight
+  const drawerDayLabel = drawer.dayIso ? fmtShortDate(new Date(drawer.dayIso + 'T00:00:00')) : ''
 
   return (
     <div>
@@ -234,7 +236,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
                     </span>
                   </td>
                   {days.map((day, i) => {
-                    const key = `${user.id}::${toDateKey(day)}`
+                    const key = `${user.id}::${toLocalDateKey(day)}`
                     const dayShifts = scheduleIndex.get(key) ?? []
                     return (
                       <td key={i} className="py-2 px-1 align-top min-w-[90px]">
@@ -242,7 +244,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
                           {dayShifts.map((shift) => (
                             <button
                               key={shift.id}
-                              onClick={() => openDrawer(user.id, day.toISOString(), shift)}
+                              onClick={() => openDrawer(user.id, toLocalDateKey(day), shift)}
                               className="w-full text-left rounded-md px-2 py-1.5 text-xs transition-all"
                               style={{
                                 backgroundColor: 'rgba(0,212,255,0.06)',
@@ -271,7 +273,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
                           ))}
                           {canManage && (
                             <button
-                              onClick={() => openDrawer(user.id, day.toISOString(), null)}
+                              onClick={() => openDrawer(user.id, toLocalDateKey(day), null)}
                               className="w-full py-1 rounded-md text-xs transition-all"
                               style={{
                                 color: 'var(--color-text-muted)',

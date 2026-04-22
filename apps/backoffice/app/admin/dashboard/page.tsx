@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { count, eq } from 'drizzle-orm'
-import { db, establishments, users } from '@klyro/db'
+import { asc } from 'drizzle-orm'
+import { db, establishments } from '@klyro/db'
 import { getSession } from '@/lib/auth'
 import { AdminDashboardClient } from './AdminDashboardClient'
 
@@ -8,46 +8,19 @@ export default async function AdminDashboardPage() {
   const session = await getSession()
   if (!session || session.role !== 'SUPER_ADMIN') redirect('/admin/login')
 
-  const [allEstablishments, usersByEstablishment, allUsers] = await Promise.all([
-    db.select().from(establishments).orderBy(establishments.name),
-    db
-      .select({ establishmentId: users.establishmentId, total: count() })
-      .from(users)
-      .groupBy(users.establishmentId),
-    db
-      .select({
-        id:              users.id,
-        firstName:       users.firstName,
-        lastName:        users.lastName,
-        email:           users.email,
-        role:            users.role,
-        establishmentId: users.establishmentId,
-        createdAt:       users.createdAt,
-      })
-      .from(users)
-      .orderBy(users.role, users.firstName),
-  ])
+  const rows = await db
+    .select({ id: establishments.id, name: establishments.name, address: establishments.address, phone: establishments.phone, createdAt: establishments.createdAt })
+    .from(establishments)
+    .orderBy(asc(establishments.name))
 
-  const userCountByEid = Object.fromEntries(
-    usersByEstablishment.map((r) => [r.establishmentId ?? '_null', r.total])
-  )
-
-  const establishmentsData = allEstablishments.map((e) => ({
+  const initialEstablishments = rows.map((e) => ({
     ...e,
-    userCount: userCountByEid[e.id] ?? 0,
     createdAt: e.createdAt.toISOString(),
-    updatedAt: e.updatedAt.toISOString(),
-  }))
-
-  const usersData = allUsers.map((u) => ({
-    ...u,
-    createdAt: u.createdAt.toISOString(),
   }))
 
   return (
     <AdminDashboardClient
-      establishments={establishmentsData}
-      users={usersData}
+      initialEstablishments={initialEstablishments}
       adminEmail={session.email}
     />
   )

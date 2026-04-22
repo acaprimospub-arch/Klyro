@@ -3,6 +3,8 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTheme } from '@/components/ThemeProvider'
+import type { PermissionsMap, PermissionKey } from '@/lib/permissions'
 
 type Establishment = { id: string; name: string }
 
@@ -10,12 +12,13 @@ type SidebarProps = {
   user: { name: string; email: string; role: string }
   establishments: Establishment[]
   activeEstablishmentId: string | null
+  permissions?: PermissionsMap | null
   onClose?: () => void
 }
 
 const ROLE_RANK: Record<string, number> = { STAFF: 0, MANAGER: 1, DIRECTOR: 2, SUPER_ADMIN: 3 }
 
-const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: string; hideForRoles?: string[] }[] = [
+const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: string; hideForRoles?: string[]; permissionKey?: PermissionKey }[] = [
   {
     href: '/dashboard',
     label: 'Dashboard',
@@ -29,6 +32,7 @@ const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: 
   {
     href: '/planning',
     label: 'Planning',
+    permissionKey: 'canEditPlanning',
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -38,6 +42,7 @@ const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: 
   {
     href: '/tasks',
     label: 'Tâches',
+    permissionKey: 'canEditTasks',
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -47,6 +52,7 @@ const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: 
   {
     href: '/timeclock',
     label: 'Pointeuse',
+    permissionKey: 'canViewTimeclock',
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -57,6 +63,7 @@ const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: 
     href: '/conges',
     label: 'Congés',
     hideForRoles: ['STAFF'],
+    permissionKey: 'canEditLeaves',
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
@@ -67,6 +74,7 @@ const navItems: { href: string; label: string; icon: React.ReactNode; minRole?: 
     href: '/reservations',
     label: 'Réservations',
     hideForRoles: ['STAFF'],
+    permissionKey: 'canEditReservations',
     icon: (
       <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
@@ -102,9 +110,10 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[idx] ?? 'bg-violet-600'
 }
 
-export function Sidebar({ user, establishments, activeEstablishmentId, onClose }: SidebarProps) {
+export function Sidebar({ user, establishments, activeEstablishmentId, permissions, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { theme, toggle } = useTheme()
   const [switching, setSwitching] = useState(false)
 
   async function handleLogout() {
@@ -203,6 +212,9 @@ export function Sidebar({ user, establishments, activeEstablishmentId, onClose }
         {navItems.filter((item) => {
           if (item.minRole && (ROLE_RANK[user.role] ?? 0) < (ROLE_RANK[item.minRole] ?? 0)) return false
           if (item.hideForRoles?.includes(user.role)) return false
+          if (user.role === 'MANAGER' && item.permissionKey && permissions) {
+            if (!permissions[item.permissionKey]) return false
+          }
           return true
         }).map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -220,7 +232,7 @@ export function Sidebar({ user, establishments, activeEstablishmentId, onClose }
                 color: 'var(--color-text-secondary)',
               }}
               onMouseEnter={(e) => {
-                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)'
+                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-accent-soft)'
               }}
               onMouseLeave={(e) => {
                 if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = ''
@@ -250,6 +262,32 @@ export function Sidebar({ user, establishments, activeEstablishmentId, onClose }
             </p>
           </div>
         </div>
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          className="flex items-center gap-2.5 w-full px-2 py-2 text-sm rounded-lg transition-all"
+          style={{ color: 'var(--color-text-muted)' }}
+          onMouseEnter={(e) => {
+            ;(e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            ;(e.currentTarget as HTMLElement).style.backgroundColor = ''
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)'
+          }}
+        >
+          {theme === 'dark' ? (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+            </svg>
+          )}
+          {theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+        </button>
 
         <button
           onClick={handleLogout}

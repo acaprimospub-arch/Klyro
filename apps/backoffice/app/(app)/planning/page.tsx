@@ -11,10 +11,10 @@ type Props = { searchParams: Promise<{ week?: string }> }
 function getMondayOfWeek(dateStr?: string): Date {
   const d = dateStr ? new Date(dateStr) : new Date()
   if (isNaN(d.getTime())) return getMondayOfWeek(undefined)
-  const day = d.getDay()
+  const day = d.getUTCDay()
   const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
+  d.setUTCDate(d.getUTCDate() + diff)
+  d.setUTCHours(0, 0, 0, 0)
   return d
 }
 
@@ -34,8 +34,8 @@ export default async function PlanningPage({ searchParams }: Props) {
   const { week } = await searchParams
   const monday = getMondayOfWeek(week)
   const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  sunday.setHours(23, 59, 59, 999)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  sunday.setUTCHours(23, 59, 59, 999)
 
   const [weekSchedules, establishmentUsers] = await Promise.all([
     db
@@ -85,7 +85,7 @@ export default async function PlanningPage({ searchParams }: Props) {
             endAt: s.endAt.toISOString(),
           }))}
           users={establishmentUsers}
-          weekStart={monday.toISOString()}
+          weekStart={`${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, '0')}-${String(monday.getUTCDate()).padStart(2, '0')}`}
           canManage={hasMinRole(session, 'MANAGER')}
         />
       </div>

@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm'
 import { db, schedules, users } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
+import { requirePermission } from '@/lib/permissions'
+import { getEffectiveEidFromRequest } from '@/lib/establishment'
 
 const shiftSchema = z.object({
   userId: z.string().uuid(),
@@ -20,11 +22,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
 
-  if (!session.establishmentId) {
+  const permDenied = await requirePermission(session, 'canEditPlanning')
+  if (permDenied) return permDenied
+
+  const eid = await getEffectiveEidFromRequest(session, req)
+  if (!eid) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })
   }
-
-  const eid = session.establishmentId
 
   let body: unknown
   try {

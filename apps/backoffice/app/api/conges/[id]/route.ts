@@ -5,6 +5,7 @@ import { db, leaveRequests } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
 import { getEffectiveEidFromRequest } from '@/lib/establishment'
+import { requirePermission } from '@/lib/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -20,6 +21,9 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
 
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
+
+  const permDenied = await requirePermission(session, 'canApproveLeavesRequests')
+  if (permDenied) return permDenied
 
   const eid = await getEffectiveEidFromRequest(session, req)
   if (!eid) return NextResponse.json({ error: 'Establishment required' }, { status: 400 })

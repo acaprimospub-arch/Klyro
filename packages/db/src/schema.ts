@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   date,
+  boolean,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -43,6 +44,9 @@ export const establishments = pgTable('establishments', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   address: text('address').notNull(),
+  phone: text('phone'),
+  contactEmail: text('contact_email'),
+  type: text('type'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -139,6 +143,31 @@ export const timeEntries = pgTable('time_entries', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const taskCategories = pgTable('task_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  establishmentId: uuid('establishment_id')
+    .notNull()
+    .references(() => establishments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const managerPermissions = pgTable('manager_permissions', {
+  id:                       uuid('id').primaryKey().defaultRandom(),
+  userId:                   uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  establishmentId:          uuid('establishment_id').notNull().references(() => establishments.id, { onDelete: 'cascade' }),
+  canEditPlanning:          boolean('can_edit_planning').notNull().default(true),
+  canEditTasks:             boolean('can_edit_tasks').notNull().default(true),
+  canEditStaff:             boolean('can_edit_staff').notNull().default(false),
+  canEditReservations:      boolean('can_edit_reservations').notNull().default(true),
+  canEditLeaves:            boolean('can_edit_leaves').notNull().default(true),
+  canViewTimeclock:         boolean('can_view_timeclock').notNull().default(true),
+  canApproveLeavesRequests: boolean('can_approve_leave_requests').notNull().default(true),
+  createdAt:                timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:                timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const reservations = pgTable('reservations', {
   id: uuid('id').primaryKey().defaultRandom(),
   establishmentId: uuid('establishment_id')
@@ -165,6 +194,7 @@ export const establishmentRelations = relations(establishments, ({ many }) => ({
   leaveRequests: many(leaveRequests),
   timeEntries: many(timeEntries),
   reservations: many(reservations),
+  taskCategories: many(taskCategories),
 }))
 
 export const positionRelations = relations(positions, ({ one, many }) => ({
@@ -245,6 +275,24 @@ export const reservationRelations = relations(reservations, ({ one }) => ({
   }),
 }))
 
+export const taskCategoryRelations = relations(taskCategories, ({ one }) => ({
+  establishment: one(establishments, {
+    fields: [taskCategories.establishmentId],
+    references: [establishments.id],
+  }),
+}))
+
+export const managerPermissionsRelations = relations(managerPermissions, ({ one }) => ({
+  user: one(users, {
+    fields: [managerPermissions.userId],
+    references: [users.id],
+  }),
+  establishment: one(establishments, {
+    fields: [managerPermissions.establishmentId],
+    references: [establishments.id],
+  }),
+}))
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 
 export type Establishment = typeof establishments.$inferSelect
@@ -270,6 +318,12 @@ export type NewReservation = typeof reservations.$inferInsert
 
 export type Position = typeof positions.$inferSelect
 export type NewPosition = typeof positions.$inferInsert
+
+export type ManagerPermissions = typeof managerPermissions.$inferSelect
+export type NewManagerPermissions = typeof managerPermissions.$inferInsert
+
+export type TaskCategory = typeof taskCategories.$inferSelect
+export type NewTaskCategory = typeof taskCategories.$inferInsert
 
 export type Role = (typeof roleEnum.enumValues)[number]
 export type TaskStatus = (typeof taskStatusEnum.enumValues)[number]

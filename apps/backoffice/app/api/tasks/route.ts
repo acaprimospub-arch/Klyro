@@ -5,6 +5,7 @@ import { db, tasks, users } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
 import { getEffectiveEidFromRequest } from '@/lib/establishment'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const sessionOrError = await requireAuth(req)
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
+
+  const permDenied = await requirePermission(session, 'canEditTasks')
+  if (permDenied) return permDenied
 
   const eid = await getEffectiveEidFromRequest(session, req)
   if (!eid) {

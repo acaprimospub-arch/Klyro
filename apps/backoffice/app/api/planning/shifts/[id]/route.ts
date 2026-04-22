@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm'
 import { db, schedules } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
+import { requirePermission } from '@/lib/permissions'
+import { getEffectiveEidFromRequest } from '@/lib/establishment'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -21,7 +23,11 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
 
-  if (!session.establishmentId) {
+  const permDenied = await requirePermission(session, 'canEditPlanning')
+  if (permDenied) return permDenied
+
+  const eid = await getEffectiveEidFromRequest(session, req)
+  if (!eid) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })
   }
 
@@ -53,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
   const [updated] = await db
     .update(schedules)
     .set({ startAt: start, endAt: end, position })
-    .where(and(eq(schedules.id, id), eq(schedules.establishmentId, session.establishmentId)))
+    .where(and(eq(schedules.id, id), eq(schedules.establishmentId, eid)))
     .returning()
 
   if (!updated) {
@@ -71,7 +77,11 @@ export async function DELETE(req: NextRequest, { params }: Params): Promise<Next
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
 
-  if (!session.establishmentId) {
+  const permDenied = await requirePermission(session, 'canEditPlanning')
+  if (permDenied) return permDenied
+
+  const eid = await getEffectiveEidFromRequest(session, req)
+  if (!eid) {
     return NextResponse.json({ error: 'Establishment required' }, { status: 400 })
   }
 
@@ -83,7 +93,7 @@ export async function DELETE(req: NextRequest, { params }: Params): Promise<Next
     .where(
       and(
         eq(schedules.id, id),
-        eq(schedules.establishmentId, session.establishmentId)
+        eq(schedules.establishmentId, eid)
       )
     )
     .returning({ id: schedules.id })

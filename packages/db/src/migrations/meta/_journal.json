@@ -15,6 +15,41 @@
       "when": 1776752698290,
       "tag": "0001_stormy_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776755394644,
+      "tag": "0002_oval_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776770721264,
+      "tag": "0003_small_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776773337678,
+      "tag": "0004_wide_fallen_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776775069321,
+      "tag": "0005_certain_garia",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776775100000,
+      "tag": "0006_unique_open_clock",
+      "breakpoints": true
     }
   ]
 }

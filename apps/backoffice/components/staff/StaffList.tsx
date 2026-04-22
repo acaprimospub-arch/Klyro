@@ -19,7 +19,7 @@ type Position = {
   name: string
 }
 
-type Tab = 'staff' | 'positions'
+type Tab = 'staff' | 'positions' | 'permissions'
 
 type StaffDrawer = {
   open: boolean
@@ -30,6 +30,30 @@ type PositionDrawer = {
   open: boolean
   position: Position | null
 }
+
+type ManagerWithPerms = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  canEditPlanning: boolean
+  canEditTasks: boolean
+  canEditStaff: boolean
+  canEditReservations: boolean
+  canEditLeaves: boolean
+  canViewTimeclock: boolean
+  canApproveLeavesRequests: boolean
+}
+
+const PERM_LABELS: { key: keyof Omit<ManagerWithPerms, 'id' | 'firstName' | 'lastName' | 'email'>; label: string }[] = [
+  { key: 'canEditPlanning',          label: 'Planning' },
+  { key: 'canEditTasks',             label: 'Tâches' },
+  { key: 'canEditStaff',             label: 'Équipe' },
+  { key: 'canEditReservations',      label: 'Réservations' },
+  { key: 'canEditLeaves',            label: 'Congés' },
+  { key: 'canViewTimeclock',         label: 'Pointeuse' },
+  { key: 'canApproveLeavesRequests', label: 'Approbation congés' },
+]
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
   STAFF:      { label: 'Employé',    color: '#A1A1AA', bg: 'rgba(161,161,170,0.1)' },
@@ -48,7 +72,9 @@ export function StaffList() {
   const [tab, setTab]           = useState<Tab>('staff')
   const [staff, setStaff]       = useState<StaffMember[]>([])
   const [positions, setPositions] = useState<Position[]>([])
+  const [managers, setManagers] = useState<ManagerWithPerms[]>([])
   const [loading, setLoading]   = useState(true)
+  const [permSaving, setPermSaving] = useState<string | null>(null)
 
   // Staff drawer
   const [sDrawer, setSDrawer] = useState<StaffDrawer>({ open: false, member: null })
@@ -71,14 +97,36 @@ export function StaffList() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [sr, pr] = await Promise.all([
+      const [sr, pr, mr] = await Promise.all([
         fetch('/api/staff').then((r) => r.json()),
         fetch('/api/positions').then((r) => r.json()),
+        fetch('/api/manager-permissions').then((r) => r.json()),
       ])
       setStaff(sr.staff ?? [])
       setPositions(pr.positions ?? [])
+      setManagers(mr.managers ?? [])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function togglePermission(
+    managerId: string,
+    key: keyof Omit<ManagerWithPerms, 'id' | 'firstName' | 'lastName' | 'email'>,
+    value: boolean,
+  ) {
+    setPermSaving(managerId + key)
+    setManagers((prev) =>
+      prev.map((m) => m.id === managerId ? { ...m, [key]: value } : m)
+    )
+    try {
+      await fetch(`/api/manager-permissions/${managerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      })
+    } finally {
+      setPermSaving(null)
     }
   }
 
@@ -186,7 +234,7 @@ export function StaffList() {
           className="flex gap-1 p-1 rounded-xl"
           style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
         >
-          {(['staff', 'positions'] as Tab[]).map((t) => (
+          {(['staff', 'positions', 'permissions'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -197,21 +245,23 @@ export function StaffList() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               } : { color: 'var(--color-text-muted)' }}
             >
-              {t === 'staff' ? `Employés (${staff.length})` : `Catégories (${positions.length})`}
+              {t === 'staff' ? `Employés (${staff.length})` : t === 'positions' ? `Catégories (${positions.length})` : `Permissions (${managers.length})`}
             </button>
           ))}
         </div>
 
-        <button
-          onClick={tab === 'staff' ? openCreateStaff : openCreatePosition}
-          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-          style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          {tab === 'staff' ? 'Ajouter un employé' : 'Ajouter une catégorie'}
-        </button>
+        {tab !== 'permissions' && (
+          <button
+            onClick={tab === 'staff' ? openCreateStaff : openCreatePosition}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            {tab === 'staff' ? 'Ajouter un employé' : 'Ajouter une catégorie'}
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -289,6 +339,92 @@ export function StaffList() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                     </svg>
                   </button>
+                </div>
+              )
+            })}
+          </div>
+        )
+      ) : tab === 'permissions' ? (
+        /* ── Permissions list ─────────────────────────────────────────── */
+        managers.length === 0 ? (
+          <div className="text-center py-16" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-sm">Aucun manager dans cet établissement</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Header row */}
+            <div className="hidden sm:grid grid-cols-[1fr_repeat(7,auto)] gap-x-4 items-center px-4 pb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Manager</span>
+              {PERM_LABELS.map((p) => (
+                <span key={p.key} className="text-[10px] font-semibold uppercase tracking-wider text-center w-14" style={{ color: 'var(--color-text-muted)' }}>
+                  {p.label}
+                </span>
+              ))}
+            </div>
+            {managers.map((m) => {
+              const color = avatarColor(m.firstName)
+              return (
+                <div
+                  key={m.id}
+                  className="rounded-xl p-4"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  {/* Manager info */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                      style={{ backgroundColor: color }}
+                    >
+                      {m.firstName.charAt(0).toUpperCase()}{m.lastName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        {m.firstName} {m.lastName}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>{m.email}</p>
+                    </div>
+                  </div>
+                  {/* Permission toggles */}
+                  <div className="flex flex-wrap gap-2">
+                    {PERM_LABELS.map((p) => {
+                      const enabled = m[p.key]
+                      const saving  = permSaving === m.id + p.key
+                      return (
+                        <button
+                          key={p.key}
+                          onClick={() => togglePermission(m.id, p.key, !enabled)}
+                          disabled={saving}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                          style={enabled ? {
+                            backgroundColor: 'rgba(0,212,255,0.12)',
+                            color: 'var(--color-accent)',
+                            border: '1px solid rgba(0,212,255,0.3)',
+                          } : {
+                            backgroundColor: 'var(--color-bg-elevated)',
+                            color: 'var(--color-text-muted)',
+                            border: '1px solid var(--color-border)',
+                          }}
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
+                            style={enabled ? {
+                              backgroundColor: 'var(--color-accent)',
+                              borderColor: 'var(--color-accent)',
+                            } : {
+                              borderColor: 'var(--color-border)',
+                            }}
+                          >
+                            {enabled && (
+                              <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            )}
+                          </span>
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}

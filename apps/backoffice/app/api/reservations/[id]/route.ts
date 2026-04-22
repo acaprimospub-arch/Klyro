@@ -5,6 +5,7 @@ import { db, reservations } from '@klyro/db'
 import { requireAuth } from '@/lib/auth'
 import { requireMinRole } from '@/lib/rbac'
 import { getEffectiveEidFromRequest } from '@/lib/establishment'
+import { requirePermission } from '@/lib/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -40,6 +41,12 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
       { error: 'Invalid request', details: parsed.error.flatten().fieldErrors },
       { status: 400 }
     )
+  }
+
+  // MANAGER permission check for non-status edits
+  if (session.role === 'MANAGER') {
+    const permDenied = await requirePermission(session, 'canEditReservations')
+    if (permDenied) return permDenied
   }
 
   // STAFF can only update status
@@ -80,6 +87,9 @@ export async function DELETE(req: NextRequest, { params }: Params): Promise<Next
 
   const denied = requireMinRole(session, 'MANAGER')
   if (denied) return denied
+
+  const permDenied = await requirePermission(session, 'canEditReservations')
+  if (permDenied) return permDenied
 
   const eid = await getEffectiveEidFromRequest(session, req)
   if (!eid) return NextResponse.json({ error: 'Establishment required' }, { status: 400 })

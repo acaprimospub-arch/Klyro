@@ -1,10 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { asc, eq } from 'drizzle-orm'
-import { db, establishments, users } from '@klyro/db'
+import { db, establishments, users, managerPermissions } from '@klyro/db'
 import { getSession } from '@/lib/auth'
 import { ACTIVE_EID_COOKIE } from '@/lib/establishment'
 import { AppShell } from '@/components/AppShell'
+import type { PermissionsMap } from '@/lib/permissions'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -39,11 +40,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         : (establishmentsList[0]?.id ?? null)
   }
 
+  // Fetch permissions for MANAGER — used to filter sidebar items
+  let permissions: PermissionsMap | null = null
+  if (session.role === 'MANAGER') {
+    const defaults: PermissionsMap = {
+      canEditPlanning: true, canEditTasks: true, canEditStaff: false,
+      canEditReservations: true, canEditLeaves: true,
+      canViewTimeclock: true, canApproveLeavesRequests: true,
+    }
+    const [row] = await db
+      .select()
+      .from(managerPermissions)
+      .where(eq(managerPermissions.userId, session.sub))
+      .limit(1)
+    permissions = row ? {
+      canEditPlanning:          row.canEditPlanning,
+      canEditTasks:             row.canEditTasks,
+      canEditStaff:             row.canEditStaff,
+      canEditReservations:      row.canEditReservations,
+      canEditLeaves:            row.canEditLeaves,
+      canViewTimeclock:         row.canViewTimeclock,
+      canApproveLeavesRequests: row.canApproveLeavesRequests,
+    } : defaults
+  }
+
   return (
     <AppShell
       user={{ name: displayName, email: session.email, role: session.role }}
       establishments={establishmentsList}
       activeEstablishmentId={activeEstablishmentId}
+      permissions={permissions}
     >
       {children}
     </AppShell>
