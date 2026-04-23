@@ -30,6 +30,7 @@ type DrawerState = {
 }
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const OVERTIME_MINS = 35 * 60 // 35 h
 
 // weekStart is a YYYY-MM-DD string — always parsed as local midnight
 function addDays(dateKey: string, days: number): Date {
@@ -59,6 +60,22 @@ function fmtShortDate(d: Date): string {
 function buildDatetime(dateKey: string, time: string): string {
   // dateKey is YYYY-MM-DD (local), time is HH:MM — no timezone suffix → parsed as local time
   return new Date(`${dateKey}T${time}:00`).toISOString()
+}
+
+/**
+ * Duration of a shift in minutes, using UTC ms difference.
+ * Works correctly for overnight shifts (endAt > startAt in UTC).
+ * Negative durations (data error) are clamped to 0.
+ */
+function shiftMins(s: Schedule): number {
+  return Math.max(0, (new Date(s.endAt).getTime() - new Date(s.startAt).getTime()) / 60_000)
+}
+
+/** Format minutes as "HHhMM" (e.g. 35h30, 8h00, 0h00). */
+function fmtHours(totalMins: number): string {
+  const h = Math.floor(totalMins / 60)
+  const m = Math.round(totalMins % 60)
+  return `${h}h${String(m).padStart(2, '0')}`
 }
 
 export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridProps) {
@@ -159,6 +176,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
 
   const isToday = (d: Date) => toLocalDateKey(d) === toLocalDateKey(new Date())
 
+  // Schedule lookup: "userId::YYYY-MM-DD" → shifts[]
   const scheduleIndex = new Map<string, Schedule[]>()
   for (const s of schedules) {
     const key = `${s.userId}::${toLocalDateKey(new Date(s.startAt))}`
@@ -166,6 +184,16 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
     existing.push(s)
     scheduleIndex.set(key, existing)
   }
+
+  // Per-user total minutes for the week (UTC diff — overnight shifts handled correctly)
+  const userTotalMins = new Map<string, number>()
+  for (const user of users) userTotalMins.set(user.id, 0)
+  for (const s of schedules) {
+    if (userTotalMins.has(s.userId)) {
+      userTotalMins.set(s.userId, (userTotalMins.get(s.userId) ?? 0) + shiftMins(s))
+    }
+  }
+  const teamTotalMins = users.reduce((sum, u) => sum + (userTotalMins.get(u.id) ?? 0), 0)
 
   const drawerUser = users.find((u) => u.id === drawer.userId)
   // dayIso is YYYY-MM-DD — append T00:00:00 so it's parsed as local midnight
@@ -200,7 +228,7 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
         </div>
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[700px] border-collapse">
+          <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr>
                 <th className="text-left py-2 pr-3 w-36">
@@ -225,84 +253,144 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
                     </div>
                   </th>
                 ))}
+                {/* Total column header */}
+                <th className="text-right py-2 pl-3 w-16">
+                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                    Total
+                  </span>
+                </th>
               </tr>
             </thead>
+
             <tbody>
-              {users.map((user) => (
-                <tr key={user.id} style={{ borderTop: '1px solid var(--color-border)' }}>
-                  <td className="py-3 pr-3">
-                    <span className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                      {user.firstName} {user.lastName.charAt(0)}.
-                    </span>
-                  </td>
-                  {days.map((day, i) => {
-                    const key = `${user.id}::${toLocalDateKey(day)}`
-                    const dayShifts = scheduleIndex.get(key) ?? []
-                    return (
-                      <td key={i} className="py-2 px-1 align-top min-w-[90px]">
-                        <div className="flex flex-col gap-1">
-                          {dayShifts.map((shift) => (
-                            <button
-                              key={shift.id}
-                              onClick={() => openDrawer(user.id, toLocalDateKey(day), shift)}
-                              className="w-full text-left rounded-md px-2 py-1.5 text-xs transition-all"
-                              style={{
-                                backgroundColor: 'rgba(224,117,71,0.06)',
-                                border: '1px solid rgba(224,117,71,0.15)',
-                                cursor: canManage ? 'pointer' : 'default',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!canManage) return
-                                const el = e.currentTarget as HTMLElement
-                                el.style.backgroundColor = 'rgba(224,117,71,0.10)'
-                                el.style.borderColor = 'rgba(224,117,71,0.30)'
-                              }}
-                              onMouseLeave={(e) => {
-                                const el = e.currentTarget as HTMLElement
-                                el.style.backgroundColor = 'rgba(224,117,71,0.06)'
-                                el.style.borderColor = 'rgba(224,117,71,0.15)'
-                              }}
-                            >
-                              <div className="font-medium truncate" style={{ color: 'var(--color-accent)' }}>
-                                {shift.position}
-                              </div>
-                              <div className="mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                                {fmtTime(shift.startAt)}–{fmtTime(shift.endAt)}
-                              </div>
-                            </button>
-                          ))}
-                          {canManage && (
-                            <button
-                              onClick={() => openDrawer(user.id, toLocalDateKey(day), null)}
-                              className="w-full py-1 rounded-md text-xs transition-all"
-                              style={{
-                                color: 'var(--color-text-muted)',
-                                border: '1px dashed var(--color-border)',
-                              }}
-                              onMouseEnter={(e) => {
-                                const el = e.currentTarget as HTMLElement
-                                el.style.color = 'var(--color-text-secondary)'
-                                el.style.backgroundColor = 'rgba(255,255,255,0.04)'
-                                el.style.borderColor = 'var(--color-text-muted)'
-                              }}
-                              onMouseLeave={(e) => {
-                                const el = e.currentTarget as HTMLElement
-                                el.style.color = 'var(--color-text-muted)'
-                                el.style.backgroundColor = ''
-                                el.style.borderColor = 'var(--color-border)'
-                              }}
-                              title="Ajouter un shift"
-                            >
-                              +
-                            </button>
-                          )}
+              {users.map((user) => {
+                const userMins = userTotalMins.get(user.id) ?? 0
+                const isOvertime = userMins > OVERTIME_MINS
+                return (
+                  <tr key={user.id} style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <td className="py-3 pr-3">
+                      {/* Mobile: total badge above name */}
+                      {userMins > 0 && (
+                        <div className="sm:hidden mb-1">
+                          <span
+                            className="text-xs font-semibold tabular-nums"
+                            style={{ color: isOvertime ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+                          >
+                            {fmtHours(userMins)}
+                          </span>
                         </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+                      )}
+                      <span className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                        {user.firstName} {user.lastName.charAt(0)}.
+                      </span>
+                    </td>
+
+                    {days.map((day, i) => {
+                      const key = `${user.id}::${toLocalDateKey(day)}`
+                      const dayShifts = scheduleIndex.get(key) ?? []
+                      return (
+                        <td key={i} className="py-2 px-1 align-top min-w-[90px]">
+                          <div className="flex flex-col gap-1">
+                            {dayShifts.map((shift) => (
+                              <button
+                                key={shift.id}
+                                onClick={() => openDrawer(user.id, toLocalDateKey(day), shift)}
+                                className="w-full text-left rounded-md px-2 py-1.5 text-xs transition-all"
+                                style={{
+                                  backgroundColor: 'rgba(224,117,71,0.06)',
+                                  border: '1px solid rgba(224,117,71,0.15)',
+                                  cursor: canManage ? 'pointer' : 'default',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!canManage) return
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.backgroundColor = 'rgba(224,117,71,0.10)'
+                                  el.style.borderColor = 'rgba(224,117,71,0.30)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.backgroundColor = 'rgba(224,117,71,0.06)'
+                                  el.style.borderColor = 'rgba(224,117,71,0.15)'
+                                }}
+                              >
+                                <div className="font-medium truncate" style={{ color: 'var(--color-accent)' }}>
+                                  {shift.position}
+                                </div>
+                                <div className="mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                  {fmtTime(shift.startAt)}–{fmtTime(shift.endAt)}
+                                </div>
+                              </button>
+                            ))}
+                            {canManage && (
+                              <button
+                                onClick={() => openDrawer(user.id, toLocalDateKey(day), null)}
+                                className="w-full py-1 rounded-md text-xs transition-all"
+                                style={{
+                                  color: 'var(--color-text-muted)',
+                                  border: '1px dashed var(--color-border)',
+                                }}
+                                onMouseEnter={(e) => {
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.color = 'var(--color-text-secondary)'
+                                  el.style.backgroundColor = 'rgba(255,255,255,0.04)'
+                                  el.style.borderColor = 'var(--color-text-muted)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.color = 'var(--color-text-muted)'
+                                  el.style.backgroundColor = ''
+                                  el.style.borderColor = 'var(--color-border)'
+                                }}
+                                title="Ajouter un shift"
+                              >
+                                +
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )
+                    })}
+
+                    {/* Per-employee total — desktop only (mobile shown above name) */}
+                    <td className="py-3 pl-3 text-right align-middle">
+                      <span
+                        className="text-sm font-semibold tabular-nums hidden sm:inline"
+                        style={{ color: isOvertime ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}
+                      >
+                        {fmtHours(userMins)}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
+
+            {/* Team total footer */}
+            <tfoot>
+              <tr style={{ borderTop: '2px solid var(--color-border)' }}>
+                <td className="py-3 pr-3">
+                  <span
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    Total équipe
+                  </span>
+                </td>
+                {/* Empty cells for each day */}
+                {days.map((_, i) => (
+                  <td key={i} />
+                ))}
+                {/* Team total */}
+                <td className="py-3 pl-3 text-right">
+                  <span
+                    className="text-sm font-bold tabular-nums"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    {fmtHours(teamTotalMins)}
+                  </span>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

@@ -178,6 +178,7 @@ export const reservations = pgTable('reservations', {
   customerEmail: text('customer_email'),
   partySize: integer('party_size').notNull(),
   reservedAt: timestamp('reserved_at', { withTimezone: true }).notNull(),
+  durationMin: integer('duration_min').default(90),
   status: reservationStatusEnum('status').notNull().default('PENDING'),
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
