@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
 
 type StaffMember = {
   id: string
@@ -120,11 +121,16 @@ export function StaffList() {
       prev.map((m) => m.id === managerId ? { ...m, [key]: value } : m)
     )
     try {
-      await fetch(`/api/manager-permissions/${managerId}`, {
+      const res = await fetch(`/api/manager-permissions/${managerId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
       })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+        setManagers((prev) => prev.map((m) => m.id === managerId ? { ...m, [key]: !value } : m))
+      }
     } finally {
       setPermSaving(null)
     }
@@ -163,10 +169,11 @@ export function StaffList() {
       const method = sDrawer.member ? 'PATCH' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) {
-        const j = await res.json()
-        setSError(j.error ?? 'Erreur')
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
         return
       }
+      toastSuccess(sDrawer.member ? 'Employé modifié' : 'Employé créé')
       await loadAll()
       setSDrawer({ open: false, member: null })
       router.refresh()
@@ -178,7 +185,14 @@ export function StaffList() {
   async function deleteStaff(id: string) {
     if (!confirm('Supprimer ce membre ?')) return
     const res = await fetch(`/api/staff/${id}`, { method: 'DELETE' })
-    if (res.ok) { setStaff((prev) => prev.filter((m) => m.id !== id)); setSDrawer({ open: false, member: null }) }
+    if (res.ok) {
+      toastSuccess('Employé supprimé')
+      setStaff((prev) => prev.filter((m) => m.id !== id))
+      setSDrawer({ open: false, member: null })
+    } else {
+      const j = await res.json().catch(() => ({}))
+      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+    }
   }
 
   // ── Position drawer ─────────────────────────────────────────────────────────
@@ -201,10 +215,11 @@ export function StaffList() {
       const method = pDrawer.position ? 'PATCH' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: pName.trim() }) })
       if (!res.ok) {
-        const j = await res.json()
-        setPError(j.error ?? 'Erreur')
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
         return
       }
+      toastSuccess(pDrawer.position ? 'Catégorie modifiée' : 'Catégorie créée')
       await loadAll()
       setPDrawer({ open: false, position: null })
     } finally {
@@ -215,7 +230,14 @@ export function StaffList() {
   async function deletePosition(id: string) {
     if (!confirm('Supprimer cette catégorie ?')) return
     const res = await fetch(`/api/positions/${id}`, { method: 'DELETE' })
-    if (res.ok) { setPositions((prev) => prev.filter((p) => p.id !== id)); setPDrawer({ open: false, position: null }) }
+    if (res.ok) {
+      toastSuccess('Catégorie supprimée')
+      setPositions((prev) => prev.filter((p) => p.id !== id))
+      setPDrawer({ open: false, position: null })
+    } else {
+      const j = await res.json().catch(() => ({}))
+      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -229,23 +251,23 @@ export function StaffList() {
   return (
     <>
       {/* ── Tabs + action ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center gap-2 mb-5">
         <div
-          className="flex gap-1 p-1 rounded-xl"
+          className="flex flex-1 min-w-0 gap-1 p-1 rounded-xl"
           style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
         >
           {(['staff', 'positions', 'permissions'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
+              className="flex-1 text-center px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap"
               style={tab === t ? {
                 backgroundColor: 'var(--color-bg-elevated)',
                 color: 'var(--color-text-primary)',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               } : { color: 'var(--color-text-muted)' }}
             >
-              {t === 'staff' ? `Employés (${staff.length})` : t === 'positions' ? `Catégories (${positions.length})` : `Permissions (${managers.length})`}
+              {t === 'staff' ? `Équipe (${staff.length})` : t === 'positions' ? `Postes (${positions.length})` : `Perms (${managers.length})`}
             </button>
           ))}
         </div>
@@ -253,13 +275,13 @@ export function StaffList() {
         {tab !== 'permissions' && (
           <button
             onClick={tab === 'staff' ? openCreateStaff : openCreatePosition}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+            className="shrink-0 flex items-center gap-1.5 text-sm font-medium p-3 sm:px-3 sm:py-2 rounded-lg transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            {tab === 'staff' ? 'Ajouter un employé' : 'Ajouter une catégorie'}
+            <span className="hidden sm:inline">{tab === 'staff' ? 'Ajouter un employé' : 'Ajouter une catégorie'}</span>
           </button>
         )}
       </div>
@@ -331,7 +353,7 @@ export function StaffList() {
                   {/* Delete */}
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteStaff(m.id) }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 p-2 rounded-lg transition-all"
                     style={{ color: 'var(--color-danger)' }}
                     title="Supprimer"
                   >
@@ -458,7 +480,7 @@ export function StaffList() {
                 <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
                   {p.name}
                 </span>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.stopPropagation(); openEditPosition(p) }}
                     className="p-1.5 rounded-lg transition-colors"
@@ -495,7 +517,7 @@ export function StaffList() {
         >
           <div
             className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 flex flex-col gap-4"
-            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', maxHeight: '90dvh', overflowY: 'auto' }}
+            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', maxHeight: '90dvh', overflowY: 'auto', paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center sm:hidden -mt-1">
@@ -506,7 +528,7 @@ export function StaffList() {
               <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {sDrawer.member ? 'Modifier l\'employé' : 'Nouvel employé'}
               </h2>
-              <button onClick={() => setSDrawer({ open: false, member: null })} style={{ color: 'var(--color-text-muted)' }}>
+              <button onClick={() => setSDrawer({ open: false, member: null })} className="p-2 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -642,7 +664,7 @@ export function StaffList() {
         >
           <div
             className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 flex flex-col gap-4"
-            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}
+            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center sm:hidden -mt-1">
@@ -653,7 +675,7 @@ export function StaffList() {
               <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {pDrawer.position ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
               </h2>
-              <button onClick={() => setPDrawer({ open: false, position: null })} style={{ color: 'var(--color-text-muted)' }}>
+              <button onClick={() => setPDrawer({ open: false, position: null })} className="p-2 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>

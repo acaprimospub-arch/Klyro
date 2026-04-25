@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLA & Support — Staffizi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.75; color: #1a1a1a; background: #fafaf9; -webkit-font-smoothing: antialiased; margin: 0; }
+    .wrapper { max-width: 800px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+    header { padding-bottom: 1.75rem; margin-bottom: 2.5rem; border-bottom: 2px solid #E07547; }
+    .logo { font-size: 1.4rem; font-weight: 800; color: #E07547; letter-spacing: -0.5px; text-decoration: none; }
+    h1 { font-size: 1.75rem; font-weight: 700; color: #0a0a0b; margin: 0.5rem 0 0.3rem; line-height: 1.2; }
+    .meta { font-size: 0.85rem; color: #71717a; margin-top: 0.35rem; }
+    .badge { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 0.2rem 0.65rem; border-radius: 999px; margin-right: 0.5rem; margin-bottom: 1.5rem; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-blue  { background: #dbeafe; color: #1e3a8a; }
+    h2 { font-size: 1.05rem; font-weight: 700; color: #0a0a0b; margin: 2rem 0 0.65rem; padding-left: 0.75rem; border-left: 3px solid #E07547; }
+    h3 { font-size: 0.95rem; font-weight: 600; color: #18181b; margin: 1.25rem 0 0.35rem; }
+    p { margin-bottom: 0.8rem; color: #3f3f46; }
+    ul, ol { margin: 0.35rem 0 0.9rem 1.4rem; color: #3f3f46; }
+    li { margin-bottom: 0.25rem; }
+    strong { color: #18181b; }
+    .info-box { background: #f4f4f5; border-left: 3px solid #a1a1aa; border-radius: 0 6px 6px 0; padding: 0.85rem 1.1rem; margin: 0.9rem 0; }
+    .info-box p { margin: 0; font-size: 0.875rem; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.25rem 0; }
+    .kpi { background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 10px; padding: 1.1rem 1rem; text-align: center; }
+    .kpi-value { font-size: 2rem; font-weight: 800; color: #E07547; line-height: 1; }
+    .kpi-label { font-size: 0.8rem; color: #71717a; margin-top: 0.3rem; }
+    table { width: 100%; border-collapse: collapse; margin: 0.9rem 0; font-size: 0.875rem; }
+    th { background: #f4f4f5; padding: 0.55rem 0.75rem; text-align: left; font-weight: 600; color: #18181b; border-bottom: 2px solid #e4e4e7; }
+    td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f0f0f0; color: #3f3f46; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .priority-p1 { color: #dc2626; font-weight: 700; }
+    .priority-p2 { color: #d97706; font-weight: 700; }
+    .priority-p3 { color: #2563eb; font-weight: 600; }
+    .priority-p4 { color: #71717a; font-weight: 500; }
+    footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid #e4e4e7; font-size: 0.8rem; color: #a1a1aa; }
+    a { color: #E07547; }
+    .nav-back { display: inline-block; color: #E07547; font-size: 0.85rem; font-weight: 500; text-decoration: none; margin-bottom: 1rem; }
+    @media (max-width: 600px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+    @media print { .nav-back { display: none; } body { background: white; } }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <a href="/legal" class="nav-back">← Tous les documents légaux</a>
+    <header>
+      <a href="/" class="logo">Staffizi</a>
+      <h1>SLA &amp; Politique de Support</h1>
+      <p class="meta">Service Level Agreement · Version 1.0 · 25 avril 2026</p>
+    </header>
+
+    <span class="badge badge-green">Uptime 99%</span>
+    <span class="badge badge-blue">Support 24h</span>
+
+    <p>Le présent document définit les engagements de disponibilité, de sauvegarde et de support d'Arthur Capri pour le service <strong>Staffizi</strong>. Ces engagements font partie intégrante du contrat de service.</p>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-value">99%</div>
+        <div class="kpi-label">Uptime mensuel garanti</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-value">24h</div>
+        <div class="kpi-label">Délai de réponse support</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-value">30j</div>
+        <div class="kpi-label">Rétention des sauvegardes</div>
+      </div>
+    </div>
+
+    <h2>1. Disponibilité du service (Uptime)</h2>
+
+    <h3>1.1 Engagement</h3>
+    <p>Staffizi s'engage à maintenir une disponibilité du service de <strong>99,0% minimum</strong> calculée sur chaque mois calendaire.</p>
+    <p><strong>Formule de calcul :</strong></p>
+    <div class="info-box">
+      <p>Disponibilité (%) = (Minutes totales du mois − Minutes d'indisponibilité) / Minutes totales du mois × 100</p>
+    </div>
+    <p>Le service est considéré indisponible lorsque l'application principale n'est pas accessible et ne répond pas aux requêtes HTTP depuis des points de monitoring extérieurs.</p>
+
+    <h3>1.2 Monitoring</h3>
+    <ul>
+      <li>Vérification automatique toutes les <strong>5 minutes</strong> depuis plusieurs localisations</li>
+      <li>Alerte immédiate en cas d'indisponibilité détectée</li>
+      <li>Rapport mensuel de disponibilité disponible sur demande</li>
+    </ul>
+
+    <h3>1.3 Compensations</h3>
+    <table>
+      <tr><th>Disponibilité mensuelle</th><th>Crédit sur facture suivante</th></tr>
+      <tr><td>98,0% – 98,9%</td><td>5% du montant mensuel HT</td></tr>
+      <tr><td>97,0% – 97,9%</td><td>10% du montant mensuel HT</td></tr>
+      <tr><td>95,0% – 96,9%</td><td>15% du montant mensuel HT</td></tr>
+      <tr><td>&lt; 95,0%</td><td>20% du montant mensuel HT</td></tr>
+    </table>
+    <p>Les crédits sont appliqués automatiquement sur la facture du mois suivant, ou sur demande écrite dans les <strong>15 jours</strong> suivant le constat. Ils ne sont pas cumulables et ne donnent pas lieu à remboursement en espèces.</p>
+
+    <h3>1.4 Exclusions</h3>
+    <p>Les cas suivants ne sont <strong>pas comptabilisés</strong> dans le calcul d'indisponibilité :</p>
+    <ul>
+      <li>Maintenances planifiées et annoncées avec un préavis de 48h par email</li>
+      <li>Indisponibilités causées par un cas de force majeure (catastrophe naturelle, coupure opérateur national, cyberattaque externe d'ampleur)</li>
+      <li>Problèmes liés à la connexion internet du Client</li>
+      <li>Incompatibilités avec des navigateurs non supportés (IE, navigateurs &gt; 3 versions obsolètes)</li>
+    </ul>
+
+    <h3>1.5 Maintenance planifiée</h3>
+    <ul>
+      <li>Notifiée par email avec un préavis de <strong>48 heures minimum</strong></li>
+      <li>Planifiée de préférence entre <strong>02h00 et 06h00</strong> (heure de Paris, CET/CEST)</li>
+      <li>Durée annoncée et respectée</li>
+    </ul>
+
+    <h2>2. Sauvegardes et restauration</h2>
+
+    <h3>2.1 Politique de sauvegarde</h3>
+    <table>
+      <tr><th>Paramètre</th><th>Valeur</th></tr>
+      <tr><td>Fréquence</td><td>Quotidienne (02h00 CET)</td></tr>
+      <tr><td>Rétention</td><td>30 jours glissants</td></tr>
+      <tr><td>Stockage</td><td>Infrastructure séparée, Hostinger (UE)</td></tr>
+      <tr><td>Chiffrement</td><td>AES-256 au repos</td></tr>
+      <tr><td>Tests de restauration</td><td>Mensuels</td></tr>
+    </table>
+
+    <h3>2.2 Restauration sur demande</h3>
+    <ul>
+      <li>Restauration possible jusqu'à <strong>J-30</strong> sur demande écrite au support</li>
+      <li>Délai de traitement : <strong>24 heures ouvrées</strong> pour une restauration en urgence</li>
+      <li>La restauration remplace les données actuelles — une sauvegarde préalable de l'état actuel est proposée avant toute opération</li>
+    </ul>
+
+    <h2>3. Support client</h2>
+
+    <h3>3.1 Canal et horaires</h3>
+    <div class="info-box">
+      <p><strong>Email unique :</strong> <a href="mailto:acapri.mospub@gmail.com">acapri.mospub@gmail.com</a><br>
+      <strong>Disponibilité :</strong> Lundi–Vendredi, 09h00–18h00 (heure Paris)<br>
+      <strong>Langues :</strong> Français, Anglais</p>
+    </div>
+    <p>Les demandes reçues en dehors des horaires ouvrés sont traitées le prochain jour ouvré. Les incidents P1 font exception (voir 3.2).</p>
+
+    <h3>3.2 Niveaux de priorité et délais</h3>
+    <table>
+      <tr><th>Priorité</th><th>Définition</th><th>Réponse initiale</th><th>Résolution cible</th></tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Critique</span></td>
+        <td>Service totalement indisponible, aucun utilisateur ne peut accéder à l'application</td>
+        <td><strong>4 heures</strong> (7j/7)</td>
+        <td><strong>8 heures</strong></td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Majeur</span></td>
+        <td>Fonctionnalité clé inutilisable (pointeuse en panne, planning inaccessible, etc.), pas de contournement possible</td>
+        <td><strong>24h ouvrées</strong></td>
+        <td><strong>48h ouvrées</strong></td>
+      </tr>
+      <tr>
+        <td><span class="priority-p3">P3 — Mineur</span></td>
+        <td>Bug non-bloquant, contournement possible, comportement inattendu sans impact majeur</td>
+        <td><strong>72h ouvrées</strong></td>
+        <td><strong>Prochain cycle</strong></td>
+      </tr>
+      <tr>
+        <td><span class="priority-p4">P4 — Demande</span></td>
+        <td>Question d'utilisation, suggestion de fonctionnalité, demande d'information</td>
+        <td><strong>5 jours ouvrés</strong></td>
+        <td>—</td>
+      </tr>
+    </table>
+    <p>La qualification de priorité est effectuée par Staffizi sur la base des informations communiquées. Le Client peut contester la qualification dans sa réponse initiale.</p>
+
+    <h3>3.3 Processus d'escalade</h3>
+    <ol>
+      <li>Signalement par email avec description de l'incident, captures d'écran et étapes de reproduction</li>
+      <li>Accusé de réception automatique + qualification de priorité sous 2h ouvrées</li>
+      <li>Mise à jour du statut toutes les 4h pour les incidents P1, toutes les 24h pour P2</li>
+      <li>En l'absence de réponse satisfaisante, escalade par email avec objet préfixé <strong>[ESCALADE]</strong></li>
+    </ol>
+
+    <h2>4. Périmètre du support</h2>
+    <h3>Inclus dans l'abonnement</h3>
+    <ul>
+      <li>Accès à l'application web Staffizi dans les versions supportées</li>
+      <li>Corrections de bugs (défauts de fonctionnement avérés)</li>
+      <li>Mises à jour de sécurité et correctifs</li>
+      <li>Sauvegardes automatiques et restaurations d'urgence</li>
+      <li>Support fonctionnel par email (utilisation du logiciel)</li>
+    </ul>
+    <h3>Hors périmètre (sur devis)</h3>
+    <ul>
+      <li>Formation des équipes au logiciel</li>
+      <li>Développements spécifiques ou personnalisations</li>
+      <li>Migration de données depuis un système tiers</li>
+      <li>Intégrations avec des logiciels de caisse ou ERP tiers</li>
+    </ul>
+
+    <h2>5. Évolutions du SLA</h2>
+    <p>Toute modification du présent SLA est notifiée par email avec un préavis de <strong>30 jours</strong>. Les modifications s'appliquent aux périodes de facturation débutant après la date d'entrée en vigueur.</p>
+
+    <footer>
+      <p>Staffizi — édité par Arthur Capri · <a href="mailto:acapri.mospub@gmail.com">acapri.mospub@gmail.com</a></p>
+      <p><a href="/legal">← Retour aux documents légaux</a></p>
+    </footer>
+  </div>
+</body>
+</html>

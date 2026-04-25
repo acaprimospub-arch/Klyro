@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
 
 type Schedule = {
   id: string
@@ -91,7 +92,6 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
   const [position, setPosition] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState('')
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -102,7 +102,6 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
 
   function openDrawer(userId: string, dayIso: string, shift: Schedule | null) {
     if (!canManage) return
-    setError('')
     if (shift) {
       setStartTime(toLocalTime(shift.startAt))
       setEndTime(toLocalTime(shift.endAt))
@@ -121,7 +120,6 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
 
   async function saveShift() {
     setSaving(true)
-    setError('')
     try {
       const startAt = buildDatetime(drawer.dayIso, startTime)
       const endAt = buildDatetime(drawer.dayIso, endTime)
@@ -133,10 +131,11 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
           body: JSON.stringify({ startAt, endAt, position }),
         })
         if (!res.ok) {
-          const data = await res.json()
-          setError(data.error ?? 'Erreur')
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          toastError(apiErrorMessage(res.status, data.error))
           return
         }
+        toastSuccess('Shift modifié')
       } else {
         const res = await fetch('/api/planning/shifts', {
           method: 'POST',
@@ -144,10 +143,11 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
           body: JSON.stringify({ userId: drawer.userId, startAt, endAt, position }),
         })
         if (!res.ok) {
-          const data = await res.json()
-          setError(data.error ?? 'Erreur')
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          toastError(apiErrorMessage(res.status, data.error))
           return
         }
+        toastSuccess('Shift ajouté')
       }
       closeDrawer()
       router.refresh()
@@ -159,14 +159,14 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
   async function deleteShift() {
     if (!drawer.shift) return
     setDeleting(true)
-    setError('')
     try {
       const res = await fetch(`/api/planning/shifts/${drawer.shift.id}`, { method: 'DELETE' })
       if (!res.ok) {
-        const data = await res.json()
-        setError(data.error ?? 'Erreur')
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
         return
       }
+      toastSuccess('Shift supprimé')
       closeDrawer()
       router.refresh()
     } finally {
@@ -486,9 +486,6 @@ export function WeekGrid({ schedules, users, weekStart, canManage }: WeekGridPro
             </div>
           </div>
 
-          {error && (
-            <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>
-          )}
         </div>
 
         {/* Footer */}

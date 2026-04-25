@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
 
 type LeaveRequest = {
   id: string
@@ -106,10 +107,11 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
         body: JSON.stringify({ startDate, endDate, reason: reason || undefined }),
       })
       if (!res.ok) {
-        const j = await res.json()
-        setError(j.error ?? 'Erreur')
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
         return
       }
+      toastSuccess('Demande envoyée')
       await load()
       closeDrawer()
       router.refresh()
@@ -125,15 +127,23 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
       body: JSON.stringify({ status }),
     })
     if (res.ok) {
+      toastSuccess(status === 'APPROVED' ? 'Congé approuvé' : 'Congé refusé')
       setData((prev) => prev.map((r) => r.id === id ? { ...r, status } : r))
+    } else {
+      const j = await res.json().catch(() => ({}))
+      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
     }
   }
 
   async function deleteRequest(id: string) {
     const res = await fetch(`/api/conges/${id}`, { method: 'DELETE' })
     if (res.ok) {
+      toastSuccess('Demande supprimée')
       setData((prev) => prev.filter((r) => r.id !== id))
       closeDrawer()
+    } else {
+      const j = await res.json().catch(() => ({}))
+      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
     }
   }
 

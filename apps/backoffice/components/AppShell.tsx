@@ -49,6 +49,7 @@ export function AppShell({ user, establishments, activeEstablishmentId, permissi
         >
           <button
             onClick={() => setSidebarOpen(true)}
+            className="p-3 -ml-1 rounded-lg"
             style={{ color: 'var(--color-text-secondary)' }}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

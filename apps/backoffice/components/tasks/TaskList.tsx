@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
 
 type Task = {
   id: string
@@ -80,11 +81,9 @@ function TaskDrawer({
   const [dueDate, setDueDate]       = useState(task?.dueDate ?? '')
   const [saving, setSaving]         = useState(false)
   const [deleting, setDeleting]     = useState(false)
-  const [error, setError]           = useState('')
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
     setSaving(true)
     try {
       if (task) {
@@ -99,10 +98,11 @@ function TaskDrawer({
           }),
         })
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          setError((data as { error?: string }).error ?? 'Erreur')
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          toastError(apiErrorMessage(res.status, data.error))
           return
         }
+        toastSuccess('Tâche modifiée')
       } else {
         const res = await fetch('/api/tasks', {
           method: 'POST',
@@ -115,10 +115,11 @@ function TaskDrawer({
           }),
         })
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          setError((data as { error?: string }).error ?? 'Erreur')
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          toastError(apiErrorMessage(res.status, data.error))
           return
         }
+        toastSuccess('Tâche créée')
       }
       onSuccess()
     } finally {
@@ -129,14 +130,14 @@ function TaskDrawer({
   async function handleDelete() {
     if (!task) return
     setDeleting(true)
-    setError('')
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError((data as { error?: string }).error ?? 'Erreur')
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
         return
       }
+      toastSuccess('Tâche supprimée')
       onSuccess()
     } finally {
       setDeleting(false)
@@ -179,7 +180,7 @@ function TaskDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
+            className="p-3 rounded-lg transition-colors"
             style={{ color: 'var(--color-text-muted)' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}
@@ -250,11 +251,10 @@ function TaskDrawer({
             </div>
           </div>
 
-          {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </form>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 px-5 py-4">
+        <div className="flex items-center gap-2 px-5 py-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           {task && canManage && (
             <button
               type="button"
@@ -333,7 +333,12 @@ export function TaskList({ tasks, users, canManage, currentUserId }: TaskListPro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      if (res.ok) router.refresh()
+      if (res.ok) {
+        router.refresh()
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
+      }
     } finally {
       setUpdatingId(null)
     }
@@ -397,7 +402,7 @@ export function TaskList({ tasks, users, canManage, currentUserId }: TaskListPro
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+              className="px-3 py-2 text-sm font-medium rounded-md transition-colors"
               style={filter === f
                 ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-primary)' }
                 : { color: 'var(--color-text-muted)' }
@@ -447,23 +452,30 @@ export function TaskList({ tasks, users, canManage, currentUserId }: TaskListPro
                   onClick={() => updateStatus(task.id, STATUS_CYCLE[task.status])}
                   disabled={updatingId === task.id}
                   title={`Passer à ${STATUS_META[STATUS_CYCLE[task.status]].label}`}
-                  className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors disabled:opacity-50"
-                  style={task.status === 'DONE'
-                    ? { backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)' }
-                    : { borderColor: 'var(--color-border)' }
-                  }
+                  className="mt-0.5 shrink-0 w-11 h-11 -m-3 rounded-full flex items-center justify-center transition-colors disabled:opacity-50"
                   onMouseEnter={(e) => {
-                    if (task.status !== 'DONE') (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-accent)'
+                    const inner = e.currentTarget.querySelector('[data-circle]') as HTMLElement | null
+                    if (inner && task.status !== 'DONE') inner.style.borderColor = 'var(--color-accent)'
                   }}
                   onMouseLeave={(e) => {
-                    if (task.status !== 'DONE') (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'
+                    const inner = e.currentTarget.querySelector('[data-circle]') as HTMLElement | null
+                    if (inner && task.status !== 'DONE') inner.style.borderColor = 'var(--color-border)'
                   }}
                 >
-                  {task.status === 'DONE' && (
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                  )}
+                  <span
+                    data-circle=""
+                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors pointer-events-none"
+                    style={task.status === 'DONE'
+                      ? { backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)' }
+                      : { borderColor: 'var(--color-border)' }
+                    }
+                  >
+                    {task.status === 'DONE' && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </span>
                 </button>
 
                 {/* Content */}
@@ -521,7 +533,7 @@ export function TaskList({ tasks, users, canManage, currentUserId }: TaskListPro
                 {canManage && (
                   <button
                     onClick={() => openEdit(task)}
-                    className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
+                    className="shrink-0 mt-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-2.5 rounded-lg"
                     style={{ color: 'var(--color-text-muted)' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}

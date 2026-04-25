@@ -101,7 +101,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p className="text-xs" style={{ color: 'var(--color-danger)' }}>
+            <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
               {error}
             </p>
           )}
@@ -109,7 +109,7 @@ export default function LoginPage() {
           <button
             onClick={() => submit()}
             disabled={loading || pin.join('').length < 4}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-30"
+            className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-30"
             style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
           >
             {loading ? '…' : 'Se connecter'}

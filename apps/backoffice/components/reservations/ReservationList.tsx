@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
 
 type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 
@@ -90,7 +91,6 @@ function ReservationDrawer({
   const [notes, setNotes] = useState(reservation?.notes ?? '')
   const [saving, setSaving]   = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [error,  setError]  = useState('')
 
   // Reset fields when reservation changes
   useEffect(() => {
@@ -101,12 +101,10 @@ function ReservationDrawer({
     setTime(reservation ? fmtTime(reservation.reservedAt) : '')
     setParty(reservation?.partySize ?? 2)
     setNotes(reservation?.notes ?? '')
-    setError('')
   }, [reservation, defaultDate])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
     setSaving(true)
     try {
       const reservedAt = new Date(`${date}T${time}:00`).toISOString()
@@ -126,10 +124,11 @@ function ReservationDrawer({
         body: JSON.stringify(body),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError((data as { error?: string }).error ?? 'Erreur')
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
         return
       }
+      toastSuccess(isEdit ? 'Réservation modifiée' : 'Réservation créée')
       onSuccess()
     } finally {
       setSaving(false)
@@ -142,10 +141,11 @@ function ReservationDrawer({
     try {
       const res = await fetch(`/api/reservations/${reservation.id}`, { method: 'DELETE' })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError((data as { error?: string }).error ?? 'Erreur')
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
         return
       }
+      toastSuccess('Réservation supprimée')
       onSuccess()
     } finally {
       setDeleting(false)
@@ -173,7 +173,7 @@ function ReservationDrawer({
           <h2 className="text-base font-semibold font-display" style={{ color: 'var(--color-text-primary)' }}>
             {isEdit ? 'Modifier la réservation' : 'Nouvelle réservation'}
           </h2>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg"
+          <button type="button" onClick={onClose} className="p-3 rounded-lg"
             style={{ color: 'var(--color-text-muted)' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)' }}
@@ -232,10 +232,9 @@ function ReservationDrawer({
             <textarea className="input-base resize-none" rows={3} placeholder="Ex : Allergie aux noix · Anniversaire…" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
-          {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </form>
 
-        <div className="flex items-center gap-2 px-5 py-4" style={{ borderTop: '1px solid var(--color-border)' }}>
+        <div className="flex items-center gap-2 px-5 py-4" style={{ borderTop: '1px solid var(--color-border)', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           {isEdit && canManage && (
             <button type="button" onClick={handleDelete} disabled={deleting || saving}
               className="p-2 rounded-lg transition-colors disabled:opacity-40"
@@ -315,9 +314,10 @@ export function ReservationList({ canManage }: Props) {
         body: JSON.stringify({ status }),
       })
       if (res.ok) {
-        setData((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, status } : r))
-        )
+        setData((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)))
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        toastError(apiErrorMessage(res.status, data.error))
       }
     } finally {
       setUpdatingId(null)
@@ -338,28 +338,31 @@ export function ReservationList({ canManage }: Props) {
   return (
     <div>
       {/* Date navigation */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <button onClick={() => navigateDate(-1)} className="btn-ghost text-xs px-3 py-1.5">← Hier</button>
-        <input
-          type="date"
-          className="input-base flex-1 min-w-[140px] max-w-[180px]"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-        <button
-          onClick={goToday}
-          className="btn-ghost text-xs px-3 py-1.5"
-          style={!isToday ? { color: 'var(--color-accent)', fontWeight: 600 } : {}}
-        >
-          Aujourd'hui
-        </button>
-        <button onClick={() => navigateDate(1)} className="btn-ghost text-xs px-3 py-1.5">Demain →</button>
-
-        {canManage && (
-          <button onClick={openCreate} className="btn-primary ml-auto text-sm">
-            + Nouvelle
+      <div className="mb-4 space-y-1">
+        <div className="flex items-center gap-1">
+          <button onClick={() => navigateDate(-1)} className="btn-ghost px-3 shrink-0">←</button>
+          <input
+            type="date"
+            className="input-base flex-1"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <button onClick={() => navigateDate(1)} className="btn-ghost px-3 shrink-0">→</button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={goToday}
+            className="btn-ghost text-sm px-3"
+            style={!isToday ? { color: 'var(--color-accent)', fontWeight: 600 } : {}}
+          >
+            Aujourd'hui
           </button>
-        )}
+          {canManage && (
+            <button onClick={openCreate} className="btn-primary ml-auto text-sm">
+              + Nouvelle
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Date label */}
@@ -457,7 +460,7 @@ export function ReservationList({ canManage }: Props) {
                         type="button"
                         onClick={() => changeStatus(r.id, vs === 'pending' ? 'CONFIRMED' : 'COMPLETED')}
                         disabled={updatingId === r.id}
-                        className="w-9 h-9 rounded-full flex items-center justify-center transition-all disabled:opacity-50"
+                        className="w-11 h-11 rounded-full flex items-center justify-center transition-all disabled:opacity-50"
                         style={{ border: `2px solid ${m.accent}`, backgroundColor: m.bg, color: m.accent }}
                         title={vs === 'pending' ? 'Confirmer' : 'Marquer terminé'}
                       >
@@ -469,7 +472,7 @@ export function ReservationList({ canManage }: Props) {
 
                     {/* Status select */}
                     <select
-                      className="text-xs font-semibold rounded-full px-2 py-1 cursor-pointer appearance-none"
+                      className="text-sm font-semibold rounded-full px-2 py-1.5 cursor-pointer appearance-none"
                       style={{ backgroundColor: 'transparent', border: `1.5px solid ${m.accent}`, color: m.accent, fontFamily: 'inherit' }}
                       value={r.status}
                       onChange={(e) => changeStatus(r.id, e.target.value as ReservationStatus)}

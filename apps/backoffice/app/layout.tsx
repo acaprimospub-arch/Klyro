@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Syne, DM_Sans } from 'next/font/google'
+import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
 
@@ -33,6 +34,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           {children}
         </ThemeProvider>
+        <Toaster
+          position="bottom-right"
+          expand={false}
+          visibleToasts={4}
+          toastOptions={{
+            unstyled: true,
+            classNames: {
+              toast: 'flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg',
+              icon: 'shrink-0',
+            },
+          }}
+        />
       </body>
     </html>
   )
