@@ -18,6 +18,7 @@ export default async function CongesPage() {
       <LeaveRequestList
         canManage={hasMinRole(session, 'MANAGER')}
         currentUserId={session.sub}
+        currentUserName={`${session.firstName} ${session.lastName}`}
       />
     </div>
   )

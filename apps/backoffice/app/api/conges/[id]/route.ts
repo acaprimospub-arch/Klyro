@@ -10,10 +10,11 @@ import { requirePermission } from '@/lib/permissions'
 type Params = { params: Promise<{ id: string }> }
 
 const patchSchema = z.object({
-  status: z.enum(['APPROVED', 'REJECTED']),
+  status:    z.enum(['APPROVED', 'REJECTED']),
+  signature: z.string().min(50),
 })
 
-// PATCH /api/conges/[id] — approve or reject (MANAGER+)
+// PATCH /api/conges/[id] — approve or reject with manager signature (MANAGER+)
 export async function PATCH(req: NextRequest, { params }: Params): Promise<NextResponse> {
   const sessionOrError = await requireAuth(req)
   if (sessionOrError instanceof NextResponse) return sessionOrError
@@ -45,7 +46,13 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
 
   const [updated] = await db
     .update(leaveRequests)
-    .set({ status: parsed.data.status, reviewedBy: session.sub, updatedAt: new Date() })
+    .set({
+      status:           parsed.data.status,
+      reviewedBy:       session.sub,
+      managerSignature: parsed.data.signature,
+      managerSignedAt:  new Date(),
+      updatedAt:        new Date(),
+    })
     .where(and(eq(leaveRequests.id, id), eq(leaveRequests.establishmentId, eid)))
     .returning()
 
@@ -54,6 +61,8 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
   return NextResponse.json({
     leaveRequest: {
       ...updated,
+      staffSignedAt:   updated.staffSignedAt?.toISOString() ?? null,
+      managerSignedAt: updated.managerSignedAt?.toISOString() ?? null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     },

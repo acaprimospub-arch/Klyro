@@ -10,6 +10,8 @@ const TOKEN_TTL = '24h'
 export type SessionPayload = {
   sub: string            // userId
   email: string
+  firstName: string
+  lastName: string
   role: Role
   establishmentId: string | null  // null for SUPER_ADMIN
 }

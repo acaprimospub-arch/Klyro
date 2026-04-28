@@ -9,11 +9,12 @@ import { requirePermission } from '@/lib/permissions'
 type Params = { params: Promise<{ id: string }> }
 
 const patchTaskSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
+  title:       z.string().min(1).max(255).optional(),
   description: z.string().nullable().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional(),
-  assignedTo: z.string().uuid().nullable().optional(),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  status:      z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional(),
+  assignedTo:  z.string().uuid().nullable().optional(),
+  dueDate:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  categoryId:  z.string().uuid().nullable().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: Params): Promise<NextResponse> {
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
 
   const updates = parsed.data
 
-  // STAFF can only update status (not assign or edit title)
+  // STAFF can only update status
   if (session.role === 'STAFF') {
     const allowedKeys = new Set(['status'])
     const forbidden = Object.keys(updates).some((k) => !allowedKeys.has(k))

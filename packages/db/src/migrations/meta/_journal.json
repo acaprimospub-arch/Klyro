@@ -57,6 +57,20 @@
       "when": 1776775200000,
       "tag": "0007_reservation_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1745740800000,
+      "tag": "0008_leave_signatures",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1745827200000,
+      "tag": "0009_task_category_fields",
+      "breakpoints": true
     }
   ]
 }

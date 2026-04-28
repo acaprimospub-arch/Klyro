@@ -103,6 +103,9 @@ export const tasks = pgTable('tasks', {
   assignedTo: uuid('assigned_to').references(() => users.id, {
     onDelete: 'set null',
   }),
+  categoryId: uuid('category_id').references(() => taskCategories.id, {
+    onDelete: 'set null',
+  }),
   title: text('title').notNull(),
   description: text('description'),
   status: taskStatusEnum('status').notNull().default('TODO'),
@@ -126,6 +129,12 @@ export const leaveRequests = pgTable('leave_requests', {
   reviewedBy: uuid('reviewed_by').references(() => users.id, {
     onDelete: 'set null',
   }),
+  // Staff signature (required at submission)
+  staffSignature: text('staff_signature'),
+  staffSignedAt: timestamp('staff_signed_at', { withTimezone: true }),
+  // Manager/Director signature (required at approval/rejection)
+  managerSignature: text('manager_signature'),
+  managerSignedAt: timestamp('manager_signed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -149,6 +158,7 @@ export const taskCategories = pgTable('task_categories', {
     .notNull()
     .references(() => establishments.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
+  color: text('color').notNull().default('#94A3B8'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -240,6 +250,10 @@ export const taskRelations = relations(tasks, ({ one }) => ({
   assignee: one(users, {
     fields: [tasks.assignedTo],
     references: [users.id],
+  }),
+  category: one(taskCategories, {
+    fields: [tasks.categoryId],
+    references: [taskCategories.id],
   }),
 }))
 

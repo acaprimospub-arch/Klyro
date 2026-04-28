@@ -21,17 +21,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const rows = await db
     .select({
-      id:          leaveRequests.id,
-      userId:      leaveRequests.userId,
-      firstName:   users.firstName,
-      lastName:    users.lastName,
-      startDate:   leaveRequests.startDate,
-      endDate:     leaveRequests.endDate,
-      reason:      leaveRequests.reason,
-      status:      leaveRequests.status,
-      reviewedBy:  leaveRequests.reviewedBy,
-      createdAt:   leaveRequests.createdAt,
-      updatedAt:   leaveRequests.updatedAt,
+      id:                leaveRequests.id,
+      userId:            leaveRequests.userId,
+      firstName:         users.firstName,
+      lastName:          users.lastName,
+      startDate:         leaveRequests.startDate,
+      endDate:           leaveRequests.endDate,
+      reason:            leaveRequests.reason,
+      status:            leaveRequests.status,
+      reviewedBy:        leaveRequests.reviewedBy,
+      staffSignature:    leaveRequests.staffSignature,
+      staffSignedAt:     leaveRequests.staffSignedAt,
+      managerSignature:  leaveRequests.managerSignature,
+      managerSignedAt:   leaveRequests.managerSignedAt,
+      createdAt:         leaveRequests.createdAt,
+      updatedAt:         leaveRequests.updatedAt,
     })
     .from(leaveRequests)
     .innerJoin(users, eq(leaveRequests.userId, users.id))
@@ -40,8 +44,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ leaveRequests: rows.map((r) => ({
     ...r,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
+    staffSignedAt:  r.staffSignedAt?.toISOString() ?? null,
+    managerSignedAt: r.managerSignedAt?.toISOString() ?? null,
+    createdAt:  r.createdAt.toISOString(),
+    updatedAt:  r.updatedAt.toISOString(),
   })) })
 }
 
@@ -49,6 +55,7 @@ const createSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason:    z.string().max(500).optional(),
+  signature: z.string().min(50),
 })
 
 // POST /api/conges
@@ -73,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const { startDate, endDate, reason } = parsed.data
+  const { startDate, endDate, reason, signature } = parsed.data
   if (startDate > endDate) {
     return NextResponse.json({ error: 'startDate must be before endDate' }, { status: 400 })
   }
@@ -85,14 +92,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId:          session.sub,
       startDate,
       endDate,
-      reason:  reason ?? null,
-      status:  'PENDING',
+      reason:         reason ?? null,
+      status:         'PENDING',
+      staffSignature: signature,
+      staffSignedAt:  new Date(),
     })
     .returning()
 
   return NextResponse.json({
     leaveRequest: {
       ...created,
+      staffSignedAt:   created!.staffSignedAt?.toISOString() ?? null,
+      managerSignedAt: created!.managerSignedAt?.toISOString() ?? null,
       createdAt: created!.createdAt.toISOString(),
       updatedAt: created!.updatedAt.toISOString(),
     },

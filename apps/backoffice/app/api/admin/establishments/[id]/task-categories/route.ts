@@ -7,7 +7,11 @@ import { requireRole } from '@/lib/rbac'
 
 type Params = { params: Promise<{ id: string }> }
 
-const schema = z.object({ name: z.string().min(1) })
+const COLOR_RE = /^#[0-9A-Fa-f]{6}$/
+const schema = z.object({
+  name:  z.string().min(1),
+  color: z.string().regex(COLOR_RE).optional(),
+})
 
 export async function GET(req: NextRequest, { params }: Params): Promise<NextResponse> {
   const sessionOrError = await requireAuth(req)
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
   if (!parsed.success)
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten().fieldErrors }, { status: 400 })
 
-  const [row] = await db.insert(taskCategories).values({ establishmentId: eid, name: parsed.data.name }).returning()
+  const [row] = await db.insert(taskCategories).values({ establishmentId: eid, name: parsed.data.name, color: parsed.data.color ?? '#94A3B8' }).returning()
 
   return NextResponse.json({
     taskCategory: { ...row!, createdAt: row!.createdAt.toISOString(), updatedAt: row!.updatedAt.toISOString() },

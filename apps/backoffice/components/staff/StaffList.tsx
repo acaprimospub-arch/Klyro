@@ -20,7 +20,14 @@ type Position = {
   name: string
 }
 
-type Tab = 'staff' | 'positions' | 'permissions'
+type Tab = 'staff' | 'positions' | 'permissions' | 'categories'
+
+type TaskCategory = { id: string; name: string; color: string }
+
+const COLOR_PALETTE = [
+  '#94A3B8', '#E07547', '#60A5FA', '#34D399',
+  '#FBBF24', '#F87171', '#A78BFA', '#FB923C',
+]
 
 type StaffDrawer = {
   open: boolean
@@ -70,12 +77,21 @@ function avatarColor(name: string) {
 
 export function StaffList() {
   const router = useRouter()
-  const [tab, setTab]           = useState<Tab>('staff')
-  const [staff, setStaff]       = useState<StaffMember[]>([])
-  const [positions, setPositions] = useState<Position[]>([])
-  const [managers, setManagers] = useState<ManagerWithPerms[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [tab, setTab]               = useState<Tab>('staff')
+  const [staff, setStaff]           = useState<StaffMember[]>([])
+  const [positions, setPositions]   = useState<Position[]>([])
+  const [managers, setManagers]     = useState<ManagerWithPerms[]>([])
+  const [categories, setCategories] = useState<TaskCategory[]>([])
+  const [loading, setLoading]       = useState(true)
   const [permSaving, setPermSaving] = useState<string | null>(null)
+
+  // Category drawer
+  type CatDrawer = { open: boolean; category: TaskCategory | null }
+  const [cDrawer, setCDrawer] = useState<CatDrawer>({ open: false, category: null })
+  const [cName,   setCName]   = useState('')
+  const [cColor,  setCColor]  = useState('#94A3B8')
+  const [cSaving, setCSaving] = useState(false)
+  const [cError,  setCError]  = useState('')
 
   // Staff drawer
   const [sDrawer, setSDrawer] = useState<StaffDrawer>({ open: false, member: null })
@@ -98,16 +114,67 @@ export function StaffList() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [sr, pr, mr] = await Promise.all([
+      const [sr, pr, mr, cr] = await Promise.all([
         fetch('/api/staff').then((r) => r.json()),
         fetch('/api/positions').then((r) => r.json()),
         fetch('/api/manager-permissions').then((r) => r.json()),
+        fetch('/api/task-categories').then((r) => r.json()),
       ])
       setStaff(sr.staff ?? [])
       setPositions(pr.positions ?? [])
       setManagers(mr.managers ?? [])
+      setCategories(cr.taskCategories ?? [])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ── Category drawer ─────────────────────────────────────────────────────────
+
+  function openCreateCategory() {
+    setCName(''); setCColor('#94A3B8'); setCError('')
+    setCDrawer({ open: true, category: null })
+  }
+
+  function openEditCategory(c: TaskCategory) {
+    setCName(c.name); setCColor(c.color); setCError('')
+    setCDrawer({ open: true, category: c })
+  }
+
+  async function saveCategory() {
+    if (!cName.trim()) { setCError('Nom requis'); return }
+    setCSaving(true); setCError('')
+    try {
+      const url    = cDrawer.category ? `/api/task-categories/${cDrawer.category.id}` : '/api/task-categories'
+      const method = cDrawer.category ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cName.trim(), color: cColor }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+        return
+      }
+      toastSuccess(cDrawer.category ? 'Catégorie modifiée' : 'Catégorie créée')
+      await loadAll()
+      setCDrawer({ open: false, category: null })
+    } finally {
+      setCSaving(false)
+    }
+  }
+
+  async function deleteCategory(id: string) {
+    if (!confirm('Supprimer cette catégorie de tâches ?')) return
+    const res = await fetch(`/api/task-categories/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      toastSuccess('Catégorie supprimée')
+      setCategories((prev) => prev.filter((c) => c.id !== id))
+      setCDrawer({ open: false, category: null })
+    } else {
+      const j = await res.json().catch(() => ({}))
+      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
     }
   }
 
@@ -256,7 +323,7 @@ export function StaffList() {
           className="flex flex-1 min-w-0 gap-1 p-1 rounded-xl"
           style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
         >
-          {(['staff', 'positions', 'permissions'] as Tab[]).map((t) => (
+          {(['staff', 'positions', 'permissions', 'categories'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -267,21 +334,23 @@ export function StaffList() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               } : { color: 'var(--color-text-muted)' }}
             >
-              {t === 'staff' ? `Équipe (${staff.length})` : t === 'positions' ? `Postes (${positions.length})` : `Perms (${managers.length})`}
+              {t === 'staff' ? `Équipe (${staff.length})` : t === 'positions' ? `Postes (${positions.length})` : t === 'permissions' ? `Perms (${managers.length})` : `Catégories (${categories.length})`}
             </button>
           ))}
         </div>
 
         {tab !== 'permissions' && (
           <button
-            onClick={tab === 'staff' ? openCreateStaff : openCreatePosition}
+            onClick={tab === 'staff' ? openCreateStaff : tab === 'positions' ? openCreatePosition : openCreateCategory}
             className="shrink-0 flex items-center gap-1.5 text-sm font-medium p-3 sm:px-3 sm:py-2 rounded-lg transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            <span className="hidden sm:inline">{tab === 'staff' ? 'Ajouter un employé' : 'Ajouter une catégorie'}</span>
+            <span className="hidden sm:inline">
+              {tab === 'staff' ? 'Ajouter un employé' : tab === 'positions' ? 'Ajouter un poste' : 'Nouvelle catégorie'}
+            </span>
           </button>
         )}
       </div>
@@ -305,7 +374,7 @@ export function StaffList() {
         ) : (
           <div className="space-y-2">
             {staff.map((m) => {
-              const roleMeta = ROLE_META[m.role] ?? ROLE_META.STAFF
+              const roleMeta = ROLE_META[m.role] ?? ROLE_META['STAFF']!
               const color    = avatarColor(m.firstName)
               return (
                 <div
@@ -452,7 +521,7 @@ export function StaffList() {
             })}
           </div>
         )
-      ) : (
+      ) : tab === 'positions' ? (
         /* ── Positions list ───────────────────────────────────────────── */
         positions.length === 0 ? (
           <div className="text-center py-16" style={{ color: 'var(--color-text-muted)' }}>
@@ -497,6 +566,48 @@ export function StaffList() {
                     style={{ color: 'var(--color-danger)' }}
                     title="Supprimer"
                   >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        /* ── Categories list ──────────────────────────────────────────── */
+        categories.length === 0 ? (
+          <div className="text-center py-16" style={{ color: 'var(--color-text-muted)' }}>
+            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+            </svg>
+            <p className="text-sm">Aucune catégorie de tâche</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {categories.map((c) => (
+              <div key={c.id}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer group"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderLeft: `3px solid ${c.color}` }}
+                onClick={() => openEditCategory(c)}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${c.color}`)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+              >
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${c.color}22` }}>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                </div>
+                <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{c.name}</span>
+                <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button onClick={(e) => { e.stopPropagation(); openEditCategory(c) }}
+                    className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-muted)' }} title="Modifier">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                    </svg>
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteCategory(c.id) }}
+                    className="p-1.5 rounded-lg" style={{ color: 'var(--color-danger)' }} title="Supprimer">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                     </svg>
@@ -649,6 +760,103 @@ export function StaffList() {
                 style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
               >
                 {sSaving ? 'Enregistrement…' : sDrawer.member ? 'Modifier' : 'Créer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Category Drawer ─────────────────────────────────────────────── */}
+      {cDrawer.open && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setCDrawer({ open: false, category: null })}
+        >
+          <div
+            className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 flex flex-col gap-4"
+            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center sm:hidden -mt-1">
+              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                {cDrawer.category ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
+              </h2>
+              <button onClick={() => setCDrawer({ open: false, category: null })} className="p-2 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Nom de la catégorie</label>
+              <input
+                type="text" value={cName} onChange={(e) => setCName(e.target.value)}
+                placeholder="Cuisine, Service, Bar…"
+                className="px-3 py-2 rounded-lg text-sm outline-none"
+                style={inputStyle}
+                onKeyDown={(e) => e.key === 'Enter' && saveCategory()}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Couleur</label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PALETTE.map((hex) => (
+                  <button
+                    key={hex}
+                    onClick={() => setCColor(hex)}
+                    className="w-8 h-8 rounded-full transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: hex,
+                      outline: cColor === hex ? `2px solid ${hex}` : 'none',
+                      outlineOffset: '2px',
+                      boxShadow: cColor === hex ? `0 0 0 1px var(--color-bg-elevated)` : 'none',
+                    }}
+                    title={hex}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-6 h-6 rounded-full shrink-0" style={{ backgroundColor: cColor }} />
+                <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{cColor}</span>
+              </div>
+            </div>
+
+            {cError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{cError}</p>}
+
+            <div className="flex items-center gap-2 pt-1">
+              {cDrawer.category && (
+                <button
+                  onClick={() => deleteCategory(cDrawer.category!.id)}
+                  className="p-2 rounded-lg"
+                  style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: 'var(--color-danger)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => setCDrawer({ open: false, category: null })}
+                className="flex-1 py-2 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={saveCategory}
+                disabled={cSaving}
+                className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
+              >
+                {cSaving ? 'Enregistrement…' : cDrawer.category ? 'Modifier' : 'Créer'}
               </button>
             </div>
           </div>

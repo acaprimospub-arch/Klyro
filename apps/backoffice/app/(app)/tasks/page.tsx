@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { and, eq, ne } from 'drizzle-orm'
-import { db, tasks, users } from '@klyro/db'
+import { and, asc, eq, ne } from 'drizzle-orm'
+import { db, tasks, users, taskCategories } from '@klyro/db'
 import { getSession } from '@/lib/auth'
 import { getEffectiveEstablishmentId } from '@/lib/establishment'
 import { hasMinRole } from '@/lib/rbac'
@@ -20,21 +20,25 @@ export default async function TasksPage() {
     )
   }
 
-  const [allTasks, allUsers] = await Promise.all([
+  const [allTasks, allUsers, allCategories] = await Promise.all([
     db
       .select({
-        id: tasks.id,
-        title: tasks.title,
-        description: tasks.description,
-        status: tasks.status,
-        dueDate: tasks.dueDate,
-        assignedTo: tasks.assignedTo,
-        createdAt: tasks.createdAt,
+        id:            tasks.id,
+        title:         tasks.title,
+        description:   tasks.description,
+        status:        tasks.status,
+        dueDate:       tasks.dueDate,
+        assignedTo:    tasks.assignedTo,
+        categoryId:    tasks.categoryId,
+        createdAt:     tasks.createdAt,
         assigneeFirstName: users.firstName,
-        assigneeLastName: users.lastName,
+        assigneeLastName:  users.lastName,
+        categoryName:  taskCategories.name,
+        categoryColor: taskCategories.color,
       })
       .from(tasks)
       .leftJoin(users, eq(tasks.assignedTo, users.id))
+      .leftJoin(taskCategories, eq(tasks.categoryId, taskCategories.id))
       .where(eq(tasks.establishmentId, eid))
       .orderBy(tasks.createdAt),
 
@@ -43,20 +47,28 @@ export default async function TasksPage() {
       .from(users)
       .where(and(eq(users.establishmentId, eid), ne(users.role, 'SUPER_ADMIN')))
       .orderBy(users.firstName),
+
+    db
+      .select({ id: taskCategories.id, name: taskCategories.name, color: taskCategories.color })
+      .from(taskCategories)
+      .where(eq(taskCategories.establishmentId, eid))
+      .orderBy(asc(taskCategories.name)),
   ])
 
   const serializedTasks = allTasks.map((t) => ({
-    id: t.id,
-    title: t.title,
-    description: t.description,
-    status: t.status,
-    dueDate: t.dueDate,
-    assignedTo: t.assignedTo,
-    createdAt: t.createdAt.toISOString(),
-    assigneeName:
-      t.assigneeFirstName && t.assigneeLastName
-        ? `${t.assigneeFirstName} ${t.assigneeLastName}`
-        : null,
+    id:            t.id,
+    title:         t.title,
+    description:   t.description,
+    status:        t.status,
+    dueDate:       t.dueDate,
+    assignedTo:    t.assignedTo,
+    categoryId:    t.categoryId,
+    categoryName:  t.categoryName,
+    categoryColor: t.categoryColor,
+    createdAt:     t.createdAt.toISOString(),
+    assigneeName:  t.assigneeFirstName && t.assigneeLastName
+      ? `${t.assigneeFirstName} ${t.assigneeLastName}`
+      : null,
   }))
 
   return (
@@ -69,6 +81,7 @@ export default async function TasksPage() {
       <TaskList
         tasks={serializedTasks}
         users={allUsers}
+        categories={allCategories}
         canManage={hasMinRole(session, 'MANAGER')}
         currentUserId={session.sub}
       />

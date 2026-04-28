@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toastSuccess, toastError, apiErrorMessage } from '@/lib/toast'
+import { SignaturePad, SignatureImage } from '@/components/SignaturePad'
 
 type LeaveRequest = {
   id: string
@@ -14,6 +15,10 @@ type LeaveRequest = {
   reason: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   reviewedBy: string | null
+  staffSignature: string | null
+  staffSignedAt: string | null
+  managerSignature: string | null
+  managerSignedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -38,27 +43,29 @@ function fmtDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function fmtDateInput(d: string) {
-  return d
-}
-
 type Props = {
   canManage: boolean
   currentUserId: string
+  currentUserName: string
 }
 
-export function LeaveRequestList({ canManage, currentUserId }: Props) {
+export function LeaveRequestList({ canManage, currentUserId, currentUserName }: Props) {
   const router = useRouter()
-  const [data, setData] = useState<LeaveRequest[]>([])
+  const [data, setData]     = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, request: null })
 
-  // form fields
+  // ── Create-form state ─────────────────────────────────────────────────────────
   const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate]     = useState('')
-  const [reason, setReason]       = useState('')
-  const [saving, setSaving]       = useState(false)
-  const [error, setError]         = useState('')
+  const [endDate,   setEndDate]   = useState('')
+  const [reason,    setReason]    = useState('')
+  const [staffSig,  setStaffSig]  = useState<string | null>(null)
+  const [saving,    setSaving]    = useState(false)
+  const [dateError, setDateError] = useState('')
+
+  // ── Approval state ────────────────────────────────────────────────────────────
+  const [managerSig, setManagerSig] = useState<string | null>(null)
+  const [reviewing,  setReviewing]  = useState(false)
 
   async function load() {
     try {
@@ -74,20 +81,17 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
 
   useEffect(() => { load() }, [])
 
+  // ── Drawer helpers ────────────────────────────────────────────────────────────
+
   function openCreate() {
     const today = new Date().toISOString().slice(0, 10)
-    setStartDate(today)
-    setEndDate(today)
-    setReason('')
-    setError('')
+    setStartDate(today); setEndDate(today); setReason('')
+    setStaffSig(null); setDateError('')
     setDrawer({ open: true, request: null })
   }
 
-  function openEdit(r: LeaveRequest) {
-    setStartDate(r.startDate)
-    setEndDate(r.endDate)
-    setReason(r.reason ?? '')
-    setError('')
+  function openView(r: LeaveRequest) {
+    setManagerSig(null)
     setDrawer({ open: true, request: r })
   }
 
@@ -95,16 +99,18 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
     setDrawer({ open: false, request: null })
   }
 
+  // ── Create ────────────────────────────────────────────────────────────────────
+
   async function save() {
     if (!startDate || !endDate) return
-    if (startDate > endDate) { setError('La date de fin doit être après la date de début'); return }
-    setSaving(true)
-    setError('')
+    if (startDate > endDate) { setDateError('La date de fin doit être après la date de début'); return }
+    if (!staffSig) { toastError('Veuillez signer avant de soumettre'); return }
+    setSaving(true); setDateError('')
     try {
       const res = await fetch('/api/conges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate, reason: reason || undefined }),
+        body: JSON.stringify({ startDate, endDate, reason: reason || undefined, signature: staffSig }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
@@ -112,28 +118,37 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
         return
       }
       toastSuccess('Demande envoyée')
-      await load()
-      closeDrawer()
-      router.refresh()
+      await load(); closeDrawer(); router.refresh()
     } finally {
       setSaving(false)
     }
   }
 
+  // ── Approve / Reject ──────────────────────────────────────────────────────────
+
   async function review(id: string, status: 'APPROVED' | 'REJECTED') {
-    const res = await fetch(`/api/conges/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    if (res.ok) {
-      toastSuccess(status === 'APPROVED' ? 'Congé approuvé' : 'Congé refusé')
-      setData((prev) => prev.map((r) => r.id === id ? { ...r, status } : r))
-    } else {
-      const j = await res.json().catch(() => ({}))
-      toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+    if (!managerSig) { toastError('Veuillez signer avant de valider'); return }
+    setReviewing(true)
+    try {
+      const res = await fetch(`/api/conges/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, signature: managerSig }),
+      })
+      if (res.ok) {
+        toastSuccess(status === 'APPROVED' ? 'Congé approuvé' : 'Congé refusé')
+        setData((prev) => prev.map((r) => r.id === id ? { ...r, status } : r))
+        closeDrawer()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        toastError(apiErrorMessage(res.status, (j as { error?: string }).error))
+      }
+    } finally {
+      setReviewing(false)
     }
   }
+
+  // ── Delete ────────────────────────────────────────────────────────────────────
 
   async function deleteRequest(id: string) {
     const res = await fetch(`/api/conges/${id}`, { method: 'DELETE' })
@@ -147,23 +162,25 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
     }
   }
 
+  // ── Derived ───────────────────────────────────────────────────────────────────
+
   const pending  = data.filter((r) => r.status === 'PENDING').length
   const approved = data.filter((r) => r.status === 'APPROVED').length
   const rejected = data.filter((r) => r.status === 'REJECTED').length
 
   const editingRequest = drawer.request
-  const isOwner = editingRequest?.userId === currentUserId
-  const canDelete = editingRequest && (canManage || (isOwner && editingRequest.status === 'PENDING'))
+  const isOwner   = editingRequest?.userId === currentUserId
+  const canDelete = !!editingRequest && (canManage || (isOwner && editingRequest.status === 'PENDING'))
 
   return (
     <>
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2 flex-wrap">
           {[
-            { label: `${pending} en attente`,   color: STATUS_META.PENDING.accent },
-            { label: `${approved} approuvé${approved > 1 ? 's' : ''}`, color: STATUS_META.APPROVED.accent },
-            { label: `${rejected} refusé${rejected > 1 ? 's' : ''}`,   color: STATUS_META.REJECTED.accent },
+            { label: `${pending} en attente`,   color: STATUS_META['PENDING']!.accent },
+            { label: `${approved} approuvé${approved > 1 ? 's' : ''}`, color: STATUS_META['APPROVED']!.accent },
+            { label: `${rejected} refusé${rejected > 1 ? 's' : ''}`,   color: STATUS_META['REJECTED']!.accent },
           ].map((chip) => (
             <span
               key={chip.label}
@@ -186,7 +203,7 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
         </button>
       </div>
 
-      {/* ── List ─────────────────────────────────────────────────────────── */}
+      {/* ── List ───────────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex justify-center py-16">
           <svg className="w-6 h-6 animate-spin" style={{ color: 'var(--color-accent)' }} fill="none" viewBox="0 0 24 24">
@@ -204,8 +221,8 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
       ) : (
         <div className="space-y-2">
           {data.map((r) => {
-            const meta = STATUS_META[r.status] ?? STATUS_META.PENDING
-            const days = daysBetween(r.startDate, r.endDate)
+            const meta  = STATUS_META[r.status] ?? STATUS_META['PENDING']!
+            const days  = daysBetween(r.startDate, r.endDate)
             const isMine = r.userId === currentUserId
             return (
               <div
@@ -213,22 +230,19 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
                 className="rounded-xl p-4 transition-all cursor-pointer"
                 style={{
                   backgroundColor: 'var(--color-bg-secondary)',
-                  border: `1px solid var(--color-border)`,
+                  border: '1px solid var(--color-border)',
                   borderLeft: `3px solid ${meta.accent}`,
                 }}
-                onClick={() => openEdit(r)}
+                onClick={() => openView(r)}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                         {r.firstName} {r.lastName}
                       </span>
                       {isMine && !canManage && (
-                        <span
-                          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
-                        >
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}>
                           Moi
                         </span>
                       )}
@@ -247,37 +261,29 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
                       </span>
                     </p>
                     {r.reason && (
-                      <p className="text-xs mt-1 truncate" style={{ color: 'var(--color-text-muted)' }}>
-                        {r.reason}
-                      </p>
+                      <p className="text-xs mt-1 truncate" style={{ color: 'var(--color-text-muted)' }}>{r.reason}</p>
                     )}
                   </div>
 
-                  {/* Quick approve/reject for managers */}
-                  {canManage && r.status === 'PENDING' && (
-                    <div className="flex gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => review(r.id, 'APPROVED')}
-                        className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: 'rgba(52,211,153,0.15)', color: '#34D399' }}
-                        title="Approuver"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  {/* Signature badges */}
+                  <div className="shrink-0 flex flex-col gap-1 items-end">
+                    {r.staffSignature && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(52,211,153,0.1)', color: '#34D399' }}>
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                      </button>
-                      <button
-                        onClick={() => review(r.id, 'REJECTED')}
-                        className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#F87171' }}
-                        title="Refuser"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        Employé
+                      </span>
+                    )}
+                    {r.managerSignature && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(96,165,250,0.1)', color: '#60A5FA' }}>
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                      </button>
-                    </div>
-                  )}
+                        Manager
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -285,7 +291,7 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
         </div>
       )}
 
-      {/* ── Drawer ───────────────────────────────────────────────────────── */}
+      {/* ── Drawer ─────────────────────────────────────────────────────────── */}
       {drawer.open && (
         <div
           className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center"
@@ -293,17 +299,22 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
           onClick={closeDrawer}
         >
           <div
-            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 flex flex-col gap-4"
-            style={{ backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', maxHeight: '90dvh', overflowY: 'auto' }}
+            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl flex flex-col"
+            style={{
+              backgroundColor: 'var(--color-bg-elevated)',
+              border: '1px solid var(--color-border)',
+              maxHeight: '92dvh',
+              paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}
-            <div className="flex justify-center sm:hidden -mt-1">
+            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
               <div className="w-10 h-1 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
               <div>
                 <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                   {editingRequest ? 'Demande de congé' : 'Nouvelle demande'}
@@ -314,118 +325,139 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
                   </p>
                 )}
               </div>
-              <button onClick={closeDrawer} style={{ color: 'var(--color-text-muted)' }}>
+              <button onClick={closeDrawer} className="p-2 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Status badge for existing */}
-            {editingRequest && (() => {
-              const meta = STATUS_META[editingRequest.status] ?? STATUS_META.PENDING
-              return (
-                <div
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
-                  style={{ color: meta.accent, backgroundColor: meta.bg, border: `1px solid ${meta.border}` }}
-                >
-                  <span>{meta.label}</span>
-                </div>
-              )
-            })()}
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-2">
 
-            {/* Form — only editable if creating (no editing existing requests) */}
-            {!editingRequest && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
+              {/* ── CREATE FORM ─────────────────────────────────────────── */}
+              {!editingRequest && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Date de début</label>
+                      <input
+                        type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                        className="px-3 py-2 rounded-lg text-sm outline-none"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Date de fin</label>
+                      <input
+                        type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                        className="px-3 py-2 rounded-lg text-sm outline-none"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {startDate && endDate && startDate <= endDate && (
+                    <p className="text-xs -mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      {daysBetween(startDate, endDate)} jour{daysBetween(startDate, endDate) > 1 ? 's' : ''}
+                    </p>
+                  )}
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                      Date de début
+                      Motif <span style={{ fontWeight: 400 }}>(optionnel)</span>
                     </label>
-                    <input
-                      type="date"
-                      value={fmtDateInput(startDate)}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="px-3 py-2 rounded-lg text-sm outline-none"
-                      style={{
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                      }}
+                    <textarea
+                      value={reason} onChange={(e) => setReason(e.target.value)}
+                      rows={2} placeholder="Vacances, raison personnelle…"
+                      className="px-3 py-2 rounded-lg text-sm resize-none outline-none"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                      Date de fin
-                    </label>
-                    <input
-                      type="date"
-                      value={fmtDateInput(endDate)}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="px-3 py-2 rounded-lg text-sm outline-none"
-                      style={{
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    />
-                  </div>
-                </div>
 
-                {startDate && endDate && startDate <= endDate && (
-                  <p className="text-xs -mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    {daysBetween(startDate, endDate)} jour{daysBetween(startDate, endDate) > 1 ? 's' : ''}
-                  </p>
-                )}
+                  {dateError && (
+                    <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{dateError}</p>
+                  )}
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                    Motif <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optionnel)</span>
-                  </label>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={3}
-                    placeholder="Vacances, raison personnelle…"
-                    className="px-3 py-2 rounded-lg text-sm resize-none outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-secondary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
+                  {/* Staff signature */}
+                  <SignaturePad
+                    label={`Signature — ${currentUserName}`}
+                    onSign={(url) => setStaffSig(url)}
+                    onClear={() => setStaffSig(null)}
                   />
-                </div>
+                </>
+              )}
 
-                {error && (
-                  <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>
-                )}
-              </>
-            )}
+              {/* ── VIEW / APPROVAL ─────────────────────────────────────── */}
+              {editingRequest && (() => {
+                const meta = STATUS_META[editingRequest.status] ?? STATUS_META['PENDING']!
+                const days = daysBetween(editingRequest.startDate, editingRequest.endDate)
+                return (
+                  <>
+                    {/* Status badge */}
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
+                      style={{ color: meta.accent, backgroundColor: meta.bg, border: `1px solid ${meta.border}` }}
+                    >
+                      {meta.label}
+                    </div>
 
-            {/* Read-only detail for existing */}
-            {editingRequest && (
-              <div className="space-y-3">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Période</span>
-                  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                    {fmtDate(editingRequest.startDate)}
-                    {editingRequest.startDate !== editingRequest.endDate && <> → {fmtDate(editingRequest.endDate)}</>}
-                    <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {daysBetween(editingRequest.startDate, editingRequest.endDate)} jour{daysBetween(editingRequest.startDate, editingRequest.endDate) > 1 ? 's' : ''}
-                    </span>
-                  </span>
-                </div>
-                {editingRequest.reason && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Motif</span>
-                    <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{editingRequest.reason}</span>
-                  </div>
-                )}
-              </div>
-            )}
+                    {/* Period + reason */}
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Période</span>
+                        <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                          {fmtDate(editingRequest.startDate)}
+                          {editingRequest.startDate !== editingRequest.endDate && <> → {fmtDate(editingRequest.endDate)}</>}
+                          <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            {days} jour{days > 1 ? 's' : ''}
+                          </span>
+                        </span>
+                      </div>
+                      {editingRequest.reason && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Motif</span>
+                          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{editingRequest.reason}</span>
+                        </div>
+                      )}
+                    </div>
 
-            {/* Footer */}
-            <div className="flex items-center gap-2 pt-1">
+                    {/* Divider */}
+                    <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
+
+                    {/* Staff signature */}
+                    {editingRequest.staffSignature ? (
+                      <SignatureImage
+                        dataUrl={editingRequest.staffSignature}
+                        label={`Signature employé — ${editingRequest.firstName} ${editingRequest.lastName}`}
+                        date={editingRequest.staffSignedAt}
+                      />
+                    ) : (
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Aucune signature employé</p>
+                    )}
+
+                    {/* Manager signature — existing or capture */}
+                    {editingRequest.managerSignature ? (
+                      <SignatureImage
+                        dataUrl={editingRequest.managerSignature}
+                        label="Signature manager"
+                        date={editingRequest.managerSignedAt}
+                      />
+                    ) : canManage && editingRequest.status === 'PENDING' ? (
+                      <SignaturePad
+                        label="Votre signature (manager)"
+                        onSign={(url) => setManagerSig(url)}
+                        onClear={() => setManagerSig(null)}
+                      />
+                    ) : null}
+                  </>
+                )
+              })()}
+            </div>
+
+            {/* ── Footer ──────────────────────────────────────────────────── */}
+            <div className="flex items-center gap-2 px-5 pt-3 shrink-0">
+              {/* Delete */}
               {canDelete && (
                 <button
                   onClick={() => deleteRequest(editingRequest!.id)}
@@ -439,40 +471,42 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
                 </button>
               )}
 
-              {/* Manager approve/reject in drawer */}
-              {canManage && editingRequest?.status === 'PENDING' && (
+              {/* Manager approve/reject — signature required */}
+              {canManage && editingRequest?.status === 'PENDING' && !editingRequest.managerSignature && (
                 <>
                   <button
-                    onClick={() => { review(editingRequest.id, 'REJECTED'); closeDrawer() }}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                    onClick={() => review(editingRequest.id, 'REJECTED')}
+                    disabled={reviewing || !managerSig}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
                     style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: 'var(--color-danger)' }}
                   >
-                    Refuser
+                    {reviewing ? '…' : 'Refuser'}
                   </button>
                   <button
-                    onClick={() => { review(editingRequest.id, 'APPROVED'); closeDrawer() }}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                    onClick={() => review(editingRequest.id, 'APPROVED')}
+                    disabled={reviewing || !managerSig}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
                     style={{ backgroundColor: 'rgba(52,211,153,0.15)', color: '#34D399' }}
                   >
-                    Approuver
+                    {reviewing ? '…' : 'Approuver'}
                   </button>
                 </>
               )}
 
-              {/* Save for create */}
+              {/* Staff: submit new request */}
               {!editingRequest && (
                 <>
                   <button
                     onClick={closeDrawer}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                    className="flex-1 py-2 rounded-lg text-sm font-medium"
                     style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
                   >
                     Annuler
                   </button>
                   <button
                     onClick={save}
-                    disabled={saving}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                    disabled={saving || !staffSig}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
                     style={{ backgroundColor: 'var(--color-accent)', color: '#000' }}
                   >
                     {saving ? 'Envoi…' : 'Envoyer'}
@@ -480,12 +514,23 @@ export function LeaveRequestList({ canManage, currentUserId }: Props) {
                 </>
               )}
 
-              {/* Close for read-only existing with no actions */}
-              {editingRequest && !canManage && !canDelete && (
+              {/* Close for read-only states */}
+              {editingRequest && !(canManage && editingRequest.status === 'PENDING' && !editingRequest.managerSignature) && !canDelete && (
                 <button
                   onClick={closeDrawer}
                   className="flex-1 py-2 rounded-lg text-sm font-medium"
                   style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  Fermer
+                </button>
+              )}
+
+              {/* Close always available when viewing with actions */}
+              {editingRequest && (canManage || canDelete) && (
+                <button
+                  onClick={closeDrawer}
+                  className="py-2 px-3 rounded-lg text-sm"
+                  style={{ color: 'var(--color-text-muted)' }}
                 >
                   Fermer
                 </button>
