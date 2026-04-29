@@ -11,7 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@klyro/db": "*",
+    "@klyro/db": "file:../../packages/db",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "next": "15.3.1",
