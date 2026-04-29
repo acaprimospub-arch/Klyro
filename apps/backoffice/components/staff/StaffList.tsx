@@ -100,7 +100,6 @@ export function StaffList() {
   const [sEmail,     setSEmail]     = useState('')
   const [sRole,      setSRole]      = useState<'STAFF' | 'MANAGER'>('STAFF')
   const [sPositionId,setSPositionId]= useState<string>('')
-  const [sPassword,  setSPassword]  = useState('')
   const [sPin,       setSPin]       = useState('')
   const [sSaving,    setSSaving]    = useState(false)
   const [sError,     setSError]     = useState('')
@@ -209,28 +208,28 @@ export function StaffList() {
 
   function openCreateStaff() {
     setSFirstName(''); setSLastName(''); setSEmail(''); setSRole('STAFF')
-    setSPositionId(''); setSPassword(''); setSPin(''); setSError('')
+    setSPositionId(''); setSPin(''); setSError('')
     setSDrawer({ open: true, member: null })
   }
 
   function openEditStaff(m: StaffMember) {
-    setSFirstName(m.firstName); setSLastName(m.lastName); setSEmail(m.email)
+    setSFirstName(m.firstName); setSLastName(m.lastName); setSEmail(m.email ?? '')
     setSRole((m.role === 'STAFF' || m.role === 'MANAGER') ? m.role : 'STAFF')
-    setSPositionId(m.positionId ?? ''); setSPassword(''); setSPin(''); setSError('')
+    setSPositionId(m.positionId ?? ''); setSPin(''); setSError('')
     setSDrawer({ open: true, member: m })
   }
 
   async function saveStaff() {
-    if (!sFirstName || !sLastName || !sEmail) { setSError('Champs obligatoires manquants'); return }
-    if (!sDrawer.member && !sPassword) { setSError('Mot de passe requis'); return }
+    if (!sFirstName || !sLastName) { setSError('Prénom et nom requis'); return }
+    if (!sDrawer.member && !sPin) { setSError('PIN requis'); return }
     setSSaving(true); setSError('')
     try {
       const body: Record<string, unknown> = {
-        firstName: sFirstName, lastName: sLastName, email: sEmail, role: sRole,
+        firstName: sFirstName, lastName: sLastName, role: sRole,
         positionId: sPositionId || null,
+        pin: sPin || undefined,
       }
-      if (sPassword) body['password'] = sPassword
-      if (sPin) body['pin'] = sPin
+      if (sEmail) body['email'] = sEmail
 
       const url    = sDrawer.member ? `/api/staff/${sDrawer.member.id}` : '/api/staff'
       const method = sDrawer.member ? 'PATCH' : 'POST'
@@ -668,7 +667,7 @@ export function StaffList() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Email *</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Email (optionnel)</label>
               <input
                 type="email" value={sEmail} onChange={(e) => setSEmail(e.target.value)}
                 placeholder="marie@exemple.fr"
@@ -708,19 +707,7 @@ export function StaffList() {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                Mot de passe {sDrawer.member ? '(laisser vide pour ne pas changer)' : '*'}
-              </label>
-              <input
-                type="password" value={sPassword} onChange={(e) => setSPassword(e.target.value)}
-                placeholder={sDrawer.member ? '••••••••' : 'Minimum 6 caractères'}
-                className="px-3 py-2 rounded-lg text-sm outline-none"
-                style={inputStyle}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                PIN pointeuse (4 chiffres, optionnel)
+                PIN {sDrawer.member ? '(laisser vide pour ne pas changer)' : '* (4 chiffres)'}
               </label>
               <input
                 type="text" value={sPin} onChange={(e) => setSPin(e.target.value.replace(/\D/g, '').slice(0, 4))}

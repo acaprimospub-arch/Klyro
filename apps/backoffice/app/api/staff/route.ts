@@ -50,11 +50,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 const createSchema = z.object({
   firstName:  z.string().min(1).max(100),
   lastName:   z.string().min(1).max(100),
-  email:      z.string().email(),
+  email:      z.string().email().optional(),
   role:       z.enum(['STAFF', 'MANAGER']),
   positionId: z.string().uuid().nullable().optional(),
-  password:   z.string().min(6).max(100),
-  pin:        z.string().regex(/^\d{4}$/).optional(),
+  pin:        z.string().regex(/^\d{4}$/),
 })
 
 // POST /api/staff
@@ -79,19 +78,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
-  const { firstName, lastName, email, role, positionId, password, pin } = parsed.data
+  const { firstName, lastName, email, role, positionId, pin } = parsed.data
 
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
-  if (existing) return NextResponse.json({ error: 'Email déjà utilisé' }, { status: 409 })
+  if (email) {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+    if (existing) return NextResponse.json({ error: 'Email déjà utilisé' }, { status: 409 })
+  }
 
-  if (pin && !(await isPinUnique(pin))) {
+  if (!(await isPinUnique(pin))) {
     return NextResponse.json({ error: 'Ce PIN est déjà utilisé par un autre employé' }, { status: 409 })
   }
 
-  const [passwordHash, pinHash] = await Promise.all([
-    bcrypt.hash(password, 12),
-    pin ? bcrypt.hash(pin, 12) : Promise.resolve(null),
-  ])
+  const pinHash = await bcrypt.hash(pin, 12)
 
   const [created] = await db
     .insert(users)
@@ -100,10 +98,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       positionId:      positionId ?? null,
       firstName,
       lastName,
-      email,
+      email:           email ?? null,
       role,
-      passwordHash,
-      pin: pinHash,
+      passwordHash:    null,
+      pin:             pinHash,
     })
     .returning({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, role: users.role, positionId: users.positionId, createdAt: users.createdAt })
 

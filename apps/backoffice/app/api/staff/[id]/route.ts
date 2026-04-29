@@ -21,11 +21,10 @@ type Params = { params: Promise<{ id: string }> }
 const patchSchema = z.object({
   firstName:  z.string().min(1).max(100).optional(),
   lastName:   z.string().min(1).max(100).optional(),
-  email:      z.string().email().optional(),
+  email:      z.string().email().nullable().optional(),
   role:       z.enum(['STAFF', 'MANAGER']).optional(),
   positionId: z.string().uuid().nullable().optional(),
-  password:   z.string().min(6).max(100).optional(),
-  pin:        z.string().regex(/^\d{4}$/).nullable().optional(),
+  pin:        z.string().regex(/^\d{4}$/).optional(),
 })
 
 // PATCH /api/staff/[id]
@@ -52,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
-  const { password, pin, ...rest } = parsed.data
+  const { pin, ...rest } = parsed.data
 
   if (pin && !(await isPinUnique(pin, id))) {
     return NextResponse.json({ error: 'Ce PIN est déjà utilisé par un autre employé' }, { status: 409 })
@@ -60,9 +59,7 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
 
   const set: Record<string, unknown> = { ...rest, updatedAt: new Date() }
 
-  if (password) set['passwordHash'] = await bcrypt.hash(password, 12)
   if (pin) set['pin'] = await bcrypt.hash(pin, 12)
-  if (pin === null) set['pin'] = null
 
   const [updated] = await db
     .update(users)

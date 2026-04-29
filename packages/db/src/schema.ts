@@ -72,8 +72,8 @@ export const users = pgTable('users', {
   }),
   firstName: text('first_name').notNull(),
   lastName: text('last_name').notNull(),
-  email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  email: text('email').unique(),
+  passwordHash: text('password_hash'),
   role: roleEnum('role').notNull(),
   // 4-digit PIN hashed with bcrypt — used for time-clock only
   pin: text('pin'),
